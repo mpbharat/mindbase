@@ -1,0 +1,7 @@
+.DS_Store
+OLD_IDEAS/stellaros/
+node_modules/
+.env
+.env.local
+*.pid
+*.log
