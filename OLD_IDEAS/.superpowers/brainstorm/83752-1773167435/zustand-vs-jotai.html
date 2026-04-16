@@ -1,0 +1,141 @@
+<h2>Zustand vs Jotai — Deep Comparison</h2>
+<p class="subtitle">For StellarOS specifically: a 3D canvas + HUD + resource economy + single user</p>
+
+<div class="split" style="gap:16px">
+
+  <div class="mockup" style="cursor:pointer;border:2px solid transparent;transition:border 0.2s" id="opt-a" onclick="selectMockup('a')">
+    <div class="mockup-header" style="background:#1a2a1a">A — Zustand</div>
+    <div class="mockup-body" style="padding:12px">
+
+      <div style="margin-bottom:14px">
+        <div class="label" style="color:#4ade80;margin-bottom:6px">THE MENTAL MODEL</div>
+        <p style="font-size:12px;color:#ccc;margin:0">One store. An object with state + actions. Like a singleton. You call <code style="background:#0d1117;padding:1px 4px;border-radius:3px;color:#e8963a">useStore(s => s.selectedNode)</code> from anywhere — canvas or HUD — and it just works. No providers, no atoms.</p>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div class="label" style="color:#4ade80;margin-bottom:6px">HOW IT LOOKS IN SOL</div>
+        <div style="background:#0d1117;border-radius:4px;padding:10px;font-size:11px;color:#e8963a;font-family:monospace">
+          <div style="color:#666">// store.ts — one file</div>
+          <div>const useStore = create((set) => ({</div>
+          <div style="padding-left:12px">nodes: [],</div>
+          <div style="padding-left:12px">selectedNode: null,</div>
+          <div style="padding-left:12px">cogBandwidth: 0,</div>
+          <div style="padding-left:12px">zoomLevel: 1,</div>
+          <div style="padding-left:12px">selectNode: (id) =></div>
+          <div style="padding-left:24px">set({ selectedNode: id }),</div>
+          <div>}))</div>
+          <div style="margin-top:6px;color:#666">// In R3F canvas — clicks update store</div>
+          <div style="color:#666">// In HUD sidebar — reads selectedNode</div>
+          <div style="color:#666">// They stay in sync automatically</div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-bottom:14px">
+        <div class="pros">
+          <h4>Pros for SOL</h4>
+          <ul style="font-size:12px">
+            <li><strong>R3F native</strong> — useStore() inside useFrame() works perfectly. No React re-renders in the animation loop.</li>
+            <li><strong>Canvas ↔ HUD bridge</strong> — clicking a node in 3D → HUD sidebar updates. This is Zustand's strongest use case.</li>
+            <li><strong>Resource economy</strong> — bandwidth, resilience, focus all sit in one store. Easy to compute derived values.</li>
+            <li><strong>Simple to reason about</strong> — one file, one store, predictable. Good for solo dev.</li>
+            <li><strong>Battle-tested with R3F</strong> — used in nearly every complex R3F project (Drei internally, pmndrs ecosystem)</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul style="font-size:12px">
+            <li>Store can grow large if you put everything in it (split into slices to prevent this)</li>
+            <li>Less granular reactivity — a component re-renders if any subscribed slice changes (mitigated with selectors)</li>
+            <li>Mutations are imperative — feels less "React" than Jotai</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:4px;padding:8px">
+        <div style="color:#4ade80;font-size:11px;font-weight:bold;margin-bottom:4px">BEST FOR SOL WHEN:</div>
+        <div style="color:#aaa;font-size:11px">You want the 3D canvas and HUD to share state with zero ceremony. Click node → camera flies → sidebar shows detail → resource bar updates. All from one store.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup" style="cursor:pointer;border:2px solid transparent;transition:border 0.2s" id="opt-b" onclick="selectMockup('b')">
+    <div class="mockup-header" style="background:#1a1a2a">B — Jotai</div>
+    <div class="mockup-body" style="padding:12px">
+
+      <div style="margin-bottom:14px">
+        <div class="label" style="color:#a855f7;margin-bottom:6px">THE MENTAL MODEL</div>
+        <p style="font-size:12px;color:#ccc;margin:0">Atoms. Each piece of state is a tiny independent unit. You compose them — derived atoms compute from base atoms. Like signals or observables. Feels like a reactive spreadsheet.</p>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div class="label" style="color:#a855f7;margin-bottom:6px">HOW IT LOOKS IN SOL</div>
+        <div style="background:#0d1117;border-radius:4px;padding:10px;font-size:11px;color:#a855f7;font-family:monospace">
+          <div style="color:#666">// atoms.ts — many small atoms</div>
+          <div>const nodesAtom = atom([])</div>
+          <div>const selectedNodeAtom = atom(null)</div>
+          <div>const zoomLevelAtom = atom(1)</div>
+          <div style="margin-top:6px;color:#666">// Derived — auto-recomputes</div>
+          <div>const cogBandwidthAtom = atom((get) => {</div>
+          <div style="padding-left:12px">const nodes = get(nodesAtom)</div>
+          <div style="padding-left:12px">return nodes.reduce(</div>
+          <div style="padding-left:24px">(acc, n) => acc + n.cost, 0)</div>
+          <div>})</div>
+          <div style="margin-top:6px;color:#666">// Each component subscribes only</div>
+          <div style="color:#666">// to atoms it cares about</div>
+        </div>
+      </div>
+
+      <div class="pros-cons" style="margin-bottom:14px">
+        <div class="pros">
+          <h4>Pros for SOL</h4>
+          <ul style="font-size:12px">
+            <li><strong>Surgical re-renders</strong> — a component subscribed to <code style="background:#0d1117;padding:1px 3px;border-radius:2px">selectedNodeAtom</code> only re-renders when that atom changes. Zero waste.</li>
+            <li><strong>Derived atoms shine</strong> — cogBandwidth = sum of all node costs. Resilience = composite of sentiments. These compute automatically.</li>
+            <li><strong>Works with R3F</strong> — jotai has useAtomValue() which is fine inside components. Less ergonomic inside useFrame() than Zustand.</li>
+            <li><strong>Composable</strong> — easy to split concerns cleanly as the app grows</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons for SOL</h4>
+          <ul style="font-size:12px">
+            <li><strong>useFrame() friction</strong> — Jotai atoms don't play as cleanly inside R3F's animation loop. Need workarounds (store refs, read atom outside component)</li>
+            <li><strong>More boilerplate</strong> — 8 nodes × multiple state atoms = many files. Harder to see the full picture.</li>
+            <li><strong>Less obvious for canvas-HUD bridge</strong> — not the primary use case Jotai was designed for</li>
+            <li>More mental overhead for solo dev</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="background:#1a0d1a;border:1px solid #2a1a3a;border-radius:4px;padding:8px">
+        <div style="color:#a855f7;font-size:11px;font-weight:bold;margin-bottom:4px">BEST FOR SOL WHEN:</div>
+        <div style="color:#aaa;font-size:11px">You have many independent reactive values and derived computations that change at different rates. Great if the resource economy becomes very complex. Overhead not worth it for Phase 1.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="background:#0d1117;border:1px solid #1e2a3a;border-radius:6px;padding:12px;margin-top:16px">
+  <div style="color:#e8963a;font-size:12px;font-weight:bold;margin-bottom:6px">THE KEY DIFFERENCE FOR SOL</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div>
+      <div style="color:#4ade80;font-size:11px;margin-bottom:4px">Zustand wins at:</div>
+      <div style="color:#aaa;font-size:11px">Canvas ↔ HUD bridge · useFrame() animation loop · Imperative 3D event handling · "Click node, everything reacts" · Simple mental model for solo dev</div>
+    </div>
+    <div>
+      <div style="color:#a855f7;font-size:11px;margin-bottom:4px">Jotai wins at:</div>
+      <div style="color:#aaa;font-size:11px">Derived resource calculations · Surgical re-renders · Composable reactive state · Apps with many independent state slices that rarely cross-talk</div>
+    </div>
+  </div>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e2a3a;color:#666;font-size:11px">
+    SOL is fundamentally a canvas-HUD bridge problem: you click things in 3D and the HUD reacts. That's Zustand's home turf. The resource economy derivations are doable in Zustand via computed selectors. Jotai would excel if the resource economy were the primary UI, but it's not — the 3D is.
+  </div>
+</div>
+
+<script>
+function selectMockup(choice) {
+  document.querySelectorAll('.mockup').forEach(m => m.style.border = '2px solid transparent');
+  document.getElementById('opt-' + choice).style.border = '2px solid ' + (choice === 'a' ? '#4ade80' : '#a855f7');
+  recordSelection(choice, choice === 'a' ? 'A — Zustand' : 'B — Jotai');
+}
+</script>
