@@ -112,6 +112,22 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
       }
 
+      // ─── DELETE /memory/:id ────────────────────────────────────────────────
+      if (path.startsWith("/memory/") && method === "DELETE") {
+        const id = parseInt(path.split("/")[2]);
+        const result = await sql`DELETE FROM memories WHERE id = ${id} RETURNING id`;
+        if (result.length === 0) return error("Not found", 404);
+        return json({ ok: true });
+      }
+
+      // ─── DELETE /task/:id ──────────────────────────────────────────────────
+      if (path.startsWith("/task/") && method === "DELETE") {
+        const id = parseInt(path.split("/")[2]);
+        const result = await sql`DELETE FROM agent_tasks WHERE id = ${id} RETURNING id`;
+        if (result.length === 0) return error("Not found", 404);
+        return json({ ok: true });
+      }
+
       // ─── GET /memories ─────────────────────────────────────────────────────
       if (path === "/memories" && method === "GET") {
         const category = url.searchParams.get("category");
@@ -164,9 +180,16 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
         const agent = url.searchParams.get("agent");
         const status = url.searchParams.get("status");
 
-        const tasks = agent
-          ? await sql`SELECT * FROM agent_tasks WHERE agent_name = ${agent} AND (${status || null} IS NULL OR status = ${status || null}) ORDER BY priority DESC, created_at DESC`
-          : await sql`SELECT * FROM agent_tasks WHERE (${status || null} IS NULL OR status = ${status || null}) ORDER BY priority DESC, created_at DESC LIMIT 50`;
+        let tasks;
+        if (agent && status) {
+          tasks = await sql`SELECT * FROM agent_tasks WHERE agent_name = ${agent} AND status = ${status} ORDER BY priority DESC, created_at DESC`;
+        } else if (agent) {
+          tasks = await sql`SELECT * FROM agent_tasks WHERE agent_name = ${agent} ORDER BY priority DESC, created_at DESC`;
+        } else if (status) {
+          tasks = await sql`SELECT * FROM agent_tasks WHERE status = ${status} ORDER BY priority DESC, created_at DESC LIMIT 50`;
+        } else {
+          tasks = await sql`SELECT * FROM agent_tasks ORDER BY priority DESC, created_at DESC LIMIT 50`;
+        }
 
         return json({ tasks });
       }
