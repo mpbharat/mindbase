@@ -59,11 +59,13 @@ export default {
       if (path === "/context" && method === "GET") {
         const agentName = url.searchParams.get("agent") || "unknown";
 
-        const [projects, memories, tasks, backlog] = await Promise.all([
+        const [projects, memories, tasks, backlog, cronJobs, activeSubagents] = await Promise.all([
           sql`SELECT name, description, status FROM projects WHERE status != 'archived' ORDER BY updated_at DESC LIMIT 10`,
           sql`SELECT content, category, importance FROM memories ORDER BY importance DESC, created_at DESC LIMIT 20`,
           sql`SELECT title, status, priority, agent_name FROM agent_tasks WHERE status IN ('pending','in_progress') ORDER BY priority DESC, created_at DESC LIMIT 15`,
           sql`SELECT title, priority, tags FROM backlog_items WHERE status = 'active' ORDER BY priority DESC LIMIT 10`,
+          sql`SELECT name, agent_name, schedule, last_run, last_status FROM cron_jobs ORDER BY last_run DESC NULLS LAST LIMIT 20`,
+          sql`SELECT parent_agent, name, task, status FROM subagents WHERE status = 'running' ORDER BY started_at DESC LIMIT 20`,
         ]);
 
         const context = `<brain-context>
@@ -76,6 +78,12 @@ ${memories.map((m: Record<string, unknown>) => `  <memory category="${m.category
 <active-tasks>
 ${tasks.map((t: Record<string, unknown>) => `  <task status="${t.status}" priority="${t.priority}" agent="${t.agent_name}">${t.title}</task>`).join("\n")}
 </active-tasks>
+<cron-jobs>
+${(cronJobs as Record<string, unknown>[]).map(c => `  <cron name="${c.name}" agent="${c.agent_name}" schedule="${c.schedule}" last_status="${c.last_status}" last_run="${c.last_run || 'never'}"/>`).join("\n")}
+</cron-jobs>
+<active-subagents>
+${(activeSubagents as Record<string, unknown>[]).map(s => `  <subagent parent="${s.parent_agent}" name="${s.name}" task="${s.task || ''}" status="${s.status}"/>`).join("\n")}
+</active-subagents>
 <backlog>
 ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" tags="${(b.tags as string[])?.join(",") || ""}">${b.title}</item>`).join("\n")}
 </backlog>
@@ -212,6 +220,89 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
         const name = path.split("/")[2];
         const result = await sql`SELECT * FROM agent_states WHERE agent_name = ${name}`;
         return json({ state: result[0] || null });
+      }
+
+      // ─── GET /agents ──────────────────────────────────────────────────────
+      if (path === "/agents" && method === "GET") {
+        const agents = await sql`SELECT * FROM agents ORDER BY last_seen DESC NULLS LAST`;
+        return json({ agents });
+      }
+
+      // ─── GET /agent-states ────────────────────────────────────────────────
+      if (path === "/agent-states" && method === "GET") {
+        const states = await sql`SELECT * FROM agent_states ORDER BY updated_at DESC`;
+        return json({ states });
+      }
+
+      // ─── POST /cron ────────────────────────────────────────────────────────
+      if (path === "/cron" && method === "POST") {
+        const body = (await request.json()) as {
+          name: string;
+          agent_name: string;
+          schedule?: string;
+          last_status?: string;
+          last_error?: string;
+        };
+        const { name, agent_name, schedule = "@session", last_status = "ok", last_error } = body;
+
+        await sql`
+          INSERT INTO cron_jobs (name, agent_name, schedule, last_run, last_status, last_error)
+          VALUES (${name}, ${agent_name}, ${schedule}, NOW(), ${last_status}, ${last_error || null})
+          ON CONFLICT (name, agent_name) DO UPDATE
+            SET last_run = NOW(),
+                last_status = ${last_status},
+                last_error = ${last_error || null},
+                schedule = ${schedule}
+        `;
+        return json({ ok: true });
+      }
+
+      // ─── GET /crons ────────────────────────────────────────────────────────
+      if (path === "/crons" && method === "GET") {
+        const cron_jobs = await sql`SELECT * FROM cron_jobs ORDER BY last_run DESC NULLS LAST`;
+        return json({ cron_jobs });
+      }
+
+      // ─── POST /subagent ────────────────────────────────────────────────────
+      if (path === "/subagent" && method === "POST") {
+        const body = (await request.json()) as {
+          parent_agent: string;
+          name: string;
+          task?: string;
+          status?: string;
+        };
+        const { parent_agent, name, task, status = "running" } = body;
+
+        if (status !== "running") {
+          await sql`
+            INSERT INTO subagents (parent_agent, name, task, status, completed_at)
+            VALUES (${parent_agent}, ${name}, ${task || null}, ${status}, NOW())
+          `;
+        } else {
+          await sql`
+            INSERT INTO subagents (parent_agent, name, task, status)
+            VALUES (${parent_agent}, ${name}, ${task || null}, ${status})
+          `;
+        }
+        return json({ ok: true });
+      }
+
+      // ─── GET /subagents ────────────────────────────────────────────────────
+      if (path === "/subagents" && method === "GET") {
+        const parent = url.searchParams.get("parent");
+        const status = url.searchParams.get("status");
+
+        let subagents;
+        if (parent && status) {
+          subagents = await sql`SELECT * FROM subagents WHERE parent_agent = ${parent} AND status = ${status} ORDER BY started_at DESC LIMIT 50`;
+        } else if (parent) {
+          subagents = await sql`SELECT * FROM subagents WHERE parent_agent = ${parent} ORDER BY started_at DESC LIMIT 20`;
+        } else if (status) {
+          subagents = await sql`SELECT * FROM subagents WHERE status = ${status} ORDER BY started_at DESC LIMIT 50`;
+        } else {
+          subagents = await sql`SELECT * FROM subagents ORDER BY started_at DESC LIMIT 50`;
+        }
+        return json({ subagents });
       }
 
       // ─── POST /project ─────────────────────────────────────────────────────
