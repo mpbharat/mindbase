@@ -5,25 +5,21 @@ description: Gives Claude persistent memory across all sessions and machines via
 
 # Brain Sync
 
-You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block injected at session start contains your current projects, recent memories, active tasks, and backlog.
+You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block injected at session start contains your current projects, recent memories, active tasks, cron jobs, and active sub-agents.
 
 ## At Session Start
 
-Read the <brain-context> block carefully. It tells you:
-- Active projects and their status
-- Recent memories (decisions, lessons, gotchas)
-- Open tasks and backlog items
+Read the <brain-context> block carefully. Pick up exactly where you left off. Don't ask the user to re-explain context that's already in the brain.
 
-Pick up exactly where you left off. Don't ask the user to re-explain context that's already in the brain.
+Report the session start as a cron job:
+```bash
+curl -s -X POST "$BRAIN_URL/cron" \
+  -H "Authorization: Bearer $BRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"session-start\",\"agent_name\":\"$BRAIN_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
+```
 
 ## During a Session
-
-Use the brain REST API (via bash or a fetch call) when:
-- A non-obvious decision is made → POST /memory
-- A task is created or completed → POST /task or PUT /task/:id
-- You discover a gotcha or lesson worth keeping → POST /memory
-
-All requests: Authorization: Bearer $BRAIN_API_KEY to $BRAIN_URL
 
 ### Save a memory
 ```bash
@@ -41,6 +37,22 @@ curl -s -X POST "$BRAIN_URL/task" \
   -d '{"title":"<task>","project":"<project>","status":"active"}'
 ```
 
+### Report a sub-agent dispatched
+```bash
+curl -s -X POST "$BRAIN_URL/subagent" \
+  -H "Authorization: Bearer $BRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"parent_agent\":\"$BRAIN_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it's doing>\",\"status\":\"running\"}"
+```
+
+### Report a sub-agent completed
+```bash
+curl -s -X POST "$BRAIN_URL/subagent" \
+  -H "Authorization: Bearer $BRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"parent_agent\":\"$BRAIN_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it did>\",\"status\":\"done\"}"
+```
+
 ## At Session End
 
 When the user wraps up, run brain-cli save:
@@ -48,7 +60,6 @@ When the user wraps up, run brain-cli save:
 node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js save \
   --summary "One sentence: what was done" \
   --memory "Key lesson 1" \
-  --memory "Key lesson 2" \
   --next "What to do next session"
 ```
 

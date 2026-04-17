@@ -14,6 +14,14 @@ curl -s "$BRAIN_URL/context" \
   -H "Authorization: Bearer $BRAIN_API_KEY"
 ```
 
+Then report session start:
+```bash
+curl -s -X POST "$BRAIN_URL/cron" \
+  -H "Authorization: Bearer $BRAIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"session-start\",\"agent_name\":\"$BRAIN_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
+```
+
 Set env vars:
 ```bash
 export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
@@ -32,6 +40,8 @@ All requests: `Authorization: Bearer $BRAIN_API_KEY`
 | Create task | `POST /task` `{"title":"...","project":"...","status":"active"}` |
 | Update task | `PUT /task/:id` `{"status":"done"}` |
 | Log session | `POST /session` `{"agent_name":"hermes-mac","summary":"...","duration_minutes":60}` |
+| Report cron | `POST /cron` `{"name":"...","agent_name":"hermes-mac","schedule":"@session","last_status":"ok"}` |
+| Report subagent | `POST /subagent` `{"parent_agent":"hermes-mac","name":"...","task":"...","status":"running"}` |
 
 ## Session End
 
