@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js context",
+        "description": "Load brain context — active projects, memories, agent state"
+      }
+    ]
+  }
+}
