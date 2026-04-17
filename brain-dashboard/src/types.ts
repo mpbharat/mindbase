@@ -3,6 +3,7 @@ export interface Project {
   name: string;
   description: string | null;
   status: string;
+  parent_id: number | null;
   updated_at: string;
 }
 
@@ -12,6 +13,7 @@ export interface Memory {
   category: string;
   importance: number;
   agent_name: string | null;
+  project_id: number | null;
   created_at: string;
 }
 
@@ -21,6 +23,7 @@ export interface AgentTask {
   status: string;
   priority: number;
   agent_name: string | null;
+  project_id: number | null;
   created_at: string;
 }
 
@@ -46,6 +49,7 @@ export interface Session {
   id: number;
   agent_name: string;
   summary: string | null;
+  project_id: number | null;
   created_at: string;
 }
 
@@ -67,6 +71,14 @@ export interface Subagent {
   status: string;
   started_at: string;
   completed_at: string | null;
+}
+
+export interface ProjectDetail {
+  project: Project;
+  children: Project[];
+  memories: Memory[];
+  sessions: Session[];
+  tasks: AgentTask[];
 }
 
 export interface BrainData {

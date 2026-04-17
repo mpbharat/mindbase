@@ -5,15 +5,19 @@ import { AgentCard } from './components/AgentCard';
 import { CronTable } from './components/CronTable';
 import { TaskList } from './components/TaskList';
 import { ProjectGrid } from './components/ProjectGrid';
+import { ProjectDetail } from './components/ProjectDetail';
 import { MemoryFeed } from './components/MemoryFeed';
 import { SessionLog } from './components/SessionLog';
 import { s, relativeTime } from './styles';
+
+const c = s.colors;
 
 export default function App() {
   const [data, setData] = useState<BrainData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +39,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, [load]);
 
+  // Project detail view
+  if (selectedProjectId !== null) {
+    return (
+      <ProjectDetail
+        projectId={selectedProjectId}
+        onBack={() => setSelectedProjectId(null)}
+      />
+    );
+  }
+
   if (!data && !error) {
     return <div style={s.loading}>Loading brain…</div>;
   }
@@ -44,6 +58,10 @@ export default function App() {
   }
 
   const d = data!;
+
+  // Split memories: linked to a project vs. general
+  const linkedMemories = d.memories.filter(m => m.project_id !== null);
+  const generalMemories = d.memories.filter(m => m.project_id === null);
 
   return (
     <div style={s.root}>
@@ -85,12 +103,18 @@ export default function App() {
 
       <section style={s.section}>
         <h2 style={s.sectionTitle}>Projects</h2>
-        <ProjectGrid projects={d.projects} />
+        <p style={{ color: c.muted, fontSize: 12, marginBottom: 12 }}>Click any project to see memories, sessions, and tasks.</p>
+        <ProjectGrid projects={d.projects} onSelect={setSelectedProjectId} />
       </section>
 
       <section style={s.section}>
         <h2 style={s.sectionTitle}>Recent Memories</h2>
-        <MemoryFeed memories={d.memories} />
+        {linkedMemories.length > 0 && (
+          <p style={{ color: c.muted, fontSize: 12, marginBottom: 10 }}>
+            {linkedMemories.length} linked to projects · {generalMemories.length} general
+          </p>
+        )}
+        <MemoryFeed memories={d.memories} projects={d.projects} />
       </section>
 
       <section style={s.section}>

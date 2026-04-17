@@ -108,13 +108,14 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
           category?: string;
           importance?: number;
           agent_name?: string;
+          project_id?: number;
           embedding?: number[];
         };
-        const { content, category = "general", importance = 5, agent_name = "unknown", embedding } = body;
+        const { content, category = "general", importance = 5, agent_name = "unknown", project_id, embedding } = body;
 
         const result = await sql`
-          INSERT INTO memories (content, category, importance, agent_name, embedding)
-          VALUES (${content}, ${category}, ${importance}, ${agent_name}, ${embedding ? JSON.stringify(embedding) : null})
+          INSERT INTO memories (content, category, importance, agent_name, project_id, embedding)
+          VALUES (${content}, ${category}, ${importance}, ${agent_name}, ${project_id || null}, ${embedding ? JSON.stringify(embedding) : null})
           RETURNING id, created_at
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
@@ -139,11 +140,17 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
       // ─── GET /memories ─────────────────────────────────────────────────────
       if (path === "/memories" && method === "GET") {
         const category = url.searchParams.get("category");
+        const project_id = url.searchParams.get("project_id");
         const limit = parseInt(url.searchParams.get("limit") || "50");
 
-        const memories = category
-          ? await sql`SELECT * FROM memories WHERE category = ${category} ORDER BY importance DESC, created_at DESC LIMIT ${limit}`
-          : await sql`SELECT * FROM memories ORDER BY importance DESC, created_at DESC LIMIT ${limit}`;
+        let memories;
+        if (project_id) {
+          memories = await sql`SELECT * FROM memories WHERE project_id = ${parseInt(project_id)} ORDER BY importance DESC, created_at DESC LIMIT ${limit}`;
+        } else if (category) {
+          memories = await sql`SELECT * FROM memories WHERE category = ${category} ORDER BY importance DESC, created_at DESC LIMIT ${limit}`;
+        } else {
+          memories = await sql`SELECT * FROM memories ORDER BY importance DESC, created_at DESC LIMIT ${limit}`;
+        }
 
         return json({ memories });
       }
@@ -307,13 +314,17 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
 
       // ─── POST /project ─────────────────────────────────────────────────────
       if (path === "/project" && method === "POST") {
-        const body = (await request.json()) as { name: string; description?: string; status?: string };
-        const { name, description, status = "active" } = body;
+        const body = (await request.json()) as { name: string; description?: string; status?: string; parent_id?: number };
+        const { name, description, status = "active", parent_id } = body;
 
         const result = await sql`
-          INSERT INTO projects (name, description, status)
-          VALUES (${name}, ${description || null}, ${status})
-          ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, status = EXCLUDED.status, updated_at = NOW()
+          INSERT INTO projects (name, description, status, parent_id)
+          VALUES (${name}, ${description || null}, ${status}, ${parent_id || null})
+          ON CONFLICT (name) DO UPDATE SET
+            description = EXCLUDED.description,
+            status = EXCLUDED.status,
+            parent_id = COALESCE(EXCLUDED.parent_id, projects.parent_id),
+            updated_at = NOW()
           RETURNING id
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
@@ -323,6 +334,35 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
       if (path === "/projects" && method === "GET") {
         const projects = await sql`SELECT * FROM projects ORDER BY updated_at DESC`;
         return json({ projects });
+      }
+
+      // ─── GET /project/:id ──────────────────────────────────────────────────
+      if (path.match(/^\/project\/\d+$/) && method === "GET") {
+        const id = parseInt(path.split("/")[2]);
+        const [projectRows, children, memories, sessions, tasks] = await Promise.all([
+          sql`SELECT * FROM projects WHERE id = ${id}`,
+          sql`SELECT * FROM projects WHERE parent_id = ${id} ORDER BY name`,
+          sql`SELECT * FROM memories WHERE project_id = ${id} ORDER BY importance DESC, created_at DESC`,
+          sql`SELECT id, agent_name, summary, created_at FROM sessions WHERE project_id = ${id} ORDER BY created_at DESC LIMIT 20`,
+          sql`SELECT * FROM agent_tasks WHERE project_id = ${id} ORDER BY priority DESC, created_at DESC`,
+        ]);
+        if (projectRows.length === 0) return error("Not found", 404);
+        return json({ project: projectRows[0], children, memories, sessions, tasks });
+      }
+
+      // ─── PUT /project/:id ──────────────────────────────────────────────────
+      if (path.match(/^\/project\/\d+$/) && method === "PUT") {
+        const id = parseInt(path.split("/")[2]);
+        const body = (await request.json()) as { parent_id?: number | null; description?: string; status?: string };
+        await sql`
+          UPDATE projects SET
+            parent_id = COALESCE(${body.parent_id !== undefined ? body.parent_id : null}, parent_id),
+            description = COALESCE(${body.description || null}, description),
+            status = COALESCE(${body.status || null}, status),
+            updated_at = NOW()
+          WHERE id = ${id}
+        `;
+        return json({ ok: true });
       }
 
       // ─── POST /backlog ─────────────────────────────────────────────────────

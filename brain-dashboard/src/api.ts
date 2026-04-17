@@ -1,4 +1,4 @@
-import type { Agent, AgentState, AgentTask, BrainData, CronJob, Memory, Project, Session, Subagent } from './types';
+import type { Agent, AgentState, AgentTask, BrainData, CronJob, Memory, Project, ProjectDetail, Session, Subagent } from './types';
 
 // In dev: call worker directly using VITE_ env vars from .env.local
 // In prod: call /api/* which Pages Function proxies to worker (key never in browser)
@@ -26,7 +26,7 @@ export async function fetchBrainData(): Promise<BrainData> {
     { subagents },
   ] = await Promise.all([
     get<{ projects: Project[] }>('/projects'),
-    get<{ memories: Memory[] }>('/memories?limit=20'),
+    get<{ memories: Memory[] }>('/memories?limit=50'),
     get<{ tasks: AgentTask[] }>('/tasks'),
     get<{ agents: Agent[] }>('/agents'),
     get<{ states: AgentState[] }>('/agent-states'),
@@ -36,4 +36,8 @@ export async function fetchBrainData(): Promise<BrainData> {
   ]);
 
   return { projects, memories, tasks, agents, agentStates: states, sessions, cronJobs: cron_jobs, subagents };
+}
+
+export async function fetchProjectDetail(id: number): Promise<ProjectDetail> {
+  return get<ProjectDetail>(`/project/${id}`);
 }
