@@ -9,7 +9,7 @@ export async function runContext(): Promise<void> {
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/context`, {
+    const res = await fetch(`${BASE_URL}/context?agent=${encodeURIComponent(AGENT_NAME)}`, {
       headers: { 'Authorization': `Bearer ${API_KEY}` },
     });
 
