@@ -110,3 +110,29 @@ INSERT INTO memories (content, category, importance, agent_name) VALUES
   ('Bharat lives in Dubai, UAE. Wife is Amu. Daughter Dhiya starting pre-KG April 2026.', 'person', 8, 'system'),
   ('Do NOT touch the 3D scene code in stellaros/. Just reroute it to /galaxy. All 15 commits preserved.', 'decision', 9, 'system')
 ON CONFLICT DO NOTHING;
+
+-- ─── cron_jobs ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cron_jobs (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  agent_name  TEXT NOT NULL,
+  schedule    TEXT NOT NULL DEFAULT '@session',
+  last_run    TIMESTAMPTZ,
+  last_status TEXT NOT NULL DEFAULT 'unknown',
+  last_error  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cron_jobs_name_agent ON cron_jobs(name, agent_name);
+
+-- ─── subagents ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS subagents (
+  id           SERIAL PRIMARY KEY,
+  parent_agent TEXT NOT NULL,
+  name         TEXT NOT NULL,
+  task         TEXT,
+  status       TEXT NOT NULL DEFAULT 'running',
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_subagents_parent ON subagents(parent_agent);
+CREATE INDEX IF NOT EXISTS idx_subagents_status ON subagents(status);
