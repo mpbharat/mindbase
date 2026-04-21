@@ -60,7 +60,11 @@ export async function createBacklogItem(item: {
     headers: authHeaders(),
     body: JSON.stringify(item),
   });
-  if (!res.ok) throw new Error(`POST /backlog → ${res.status}`);
+  if (!res.ok) {
+    let msg = `POST /backlog → ${res.status}`;
+    try { const b = await res.json() as {error?: string}; if (b.error) msg += `: ${b.error}`; } catch {}
+    throw new Error(msg);
+  }
   return res.json() as Promise<{ id: number }>;
 }
 
@@ -76,5 +80,9 @@ export async function updateBacklogItem(id: number, updates: {
     headers: authHeaders(),
     body: JSON.stringify(updates),
   });
-  if (!res.ok) throw new Error(`PATCH /backlog/${id} → ${res.status}`);
+  if (!res.ok) {
+    let msg = `PATCH /backlog/${id} → ${res.status}`;
+    try { const b = await res.json() as {error?: string}; if (b.error) msg += `: ${b.error}`; } catch {}
+    throw new Error(msg);
+  }
 }
