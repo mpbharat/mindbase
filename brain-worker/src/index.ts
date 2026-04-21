@@ -497,6 +497,46 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
       }
 
+      // ─── GET /projects/summary ────────────────────────────────────────────
+      // Single endpoint for dashboard: projects enriched with counts + last session
+      if (path === "/projects/summary" && method === "GET") {
+        const [summaries, unlinkedRows, agents, agentStates, cronJobs, subagents] = await Promise.all([
+          sql`
+            SELECT
+              p.id, p.name, p.description, p.status, p.parent_id, p.updated_at,
+              COUNT(DISTINCT m.id)::int AS memory_count,
+              COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('pending','in_progress'))::int AS task_count,
+              (SELECT s.summary   FROM sessions s WHERE s.project_id = p.id ORDER BY s.created_at DESC LIMIT 1) AS last_session_summary,
+              (SELECT s.agent_name FROM sessions s WHERE s.project_id = p.id ORDER BY s.created_at DESC LIMIT 1) AS last_session_agent,
+              (SELECT s.created_at FROM sessions s WHERE s.project_id = p.id ORDER BY s.created_at DESC LIMIT 1) AS last_session_at
+            FROM projects p
+            LEFT JOIN memories m ON m.project_id = p.id
+            LEFT JOIN agent_tasks t ON t.project_id = p.id
+            WHERE p.status != 'archived'
+            GROUP BY p.id
+            ORDER BY p.updated_at DESC
+          `,
+          sql`
+            SELECT
+              (SELECT COUNT(*)::int FROM memories WHERE project_id IS NULL) AS memory_count,
+              (SELECT COUNT(*)::int FROM agent_tasks WHERE project_id IS NULL AND status IN ('pending','in_progress')) AS task_count
+          `,
+          sql`SELECT * FROM agents ORDER BY last_seen DESC NULLS LAST`,
+          sql`SELECT * FROM agent_states ORDER BY updated_at DESC`,
+          sql`SELECT * FROM cron_jobs ORDER BY last_run DESC NULLS LAST`,
+          sql`SELECT * FROM subagents WHERE status = 'running' ORDER BY started_at DESC LIMIT 20`,
+        ]);
+
+        return json({
+          projects: summaries,
+          unlinked: unlinkedRows[0] ?? { memory_count: 0, task_count: 0 },
+          agents,
+          agentStates,
+          cronJobs,
+          subagents,
+        });
+      }
+
       // ─── GET /backlog ──────────────────────────────────────────────────────
       if (path === "/backlog" && method === "GET") {
         const status = url.searchParams.get("status") || "active";
@@ -519,12 +559,12 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
       // ─── POST /session ─────────────────────────────────────────────────────
       if (path === "/session" && method === "POST") {
-        const body = (await request.json()) as { agent_name: string; summary?: string; session_data?: unknown };
-        const { agent_name, summary, session_data } = body;
+        const body = (await request.json()) as { agent_name: string; summary?: string; session_data?: unknown; project_id?: number };
+        const { agent_name, summary, session_data, project_id } = body;
 
         const result = await sql`
-          INSERT INTO sessions (agent_name, summary, session_data)
-          VALUES (${agent_name}, ${summary || null}, ${JSON.stringify(session_data || {})})
+          INSERT INTO sessions (agent_name, summary, session_data, project_id)
+          VALUES (${agent_name}, ${summary || null}, ${JSON.stringify(session_data || {})}, ${project_id || null})
           RETURNING id, created_at
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });

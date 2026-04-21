@@ -7,6 +7,14 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectSummary extends Project {
+  memory_count: number;
+  task_count: number;
+  last_session_summary: string | null;
+  last_session_agent: string | null;
+  last_session_at: string | null;
+}
+
 export interface Memory {
   id: number;
   content: string;
@@ -79,6 +87,15 @@ export interface ProjectDetail {
   memories: Memory[];
   sessions: Session[];
   tasks: AgentTask[];
+}
+
+export interface DashboardData {
+  projects: ProjectSummary[];
+  agents: Agent[];
+  agentStates: AgentState[];
+  cronJobs: CronJob[];
+  subagents: Subagent[];
+  unlinked: { memory_count: number; task_count: number };
 }
 
 export interface BrainData {
