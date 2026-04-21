@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { runContext } from './context.js';
 import { runSave } from './save.js';
+import { runFetch } from './fetch.js';
 
 const program = new Command();
 
@@ -14,6 +15,11 @@ program
   .command('context')
   .description('Fetch brain context and print for session injection')
   .action(runContext);
+
+program
+  .command('fetch <project>')
+  .description('Fetch full context for a specific project by name (on-demand, mid-session)')
+  .action(runFetch);
 
 program
   .command('save')

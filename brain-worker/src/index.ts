@@ -101,6 +101,125 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
         });
       }
 
+      // ─── GET /context/overview ────────────────────────────────────────────
+      // Lightweight session-start context: project tree + urgent backlog only
+      if (path === "/context/overview" && method === "GET") {
+        const agentName = url.searchParams.get("agent") || "unknown";
+
+        const [projects, backlog, recentSessions] = await Promise.all([
+          sql`SELECT id, name, description, status, parent_id FROM projects WHERE status != 'archived' ORDER BY updated_at DESC`,
+          sql`SELECT title, priority, tags FROM backlog_items WHERE status = 'active' AND priority >= 8 ORDER BY priority DESC LIMIT 10`,
+          sql`SELECT agent_name, summary, created_at FROM sessions ORDER BY created_at DESC LIMIT 5`,
+        ]);
+
+        // Build project tree
+        const roots = (projects as Record<string, unknown>[]).filter(p => !p.parent_id);
+        const childrenOf = (id: number) => (projects as Record<string, unknown>[]).filter(p => p.parent_id === id);
+        const renderProject = (p: Record<string, unknown>, depth = 0): string => {
+          const indent = '  '.repeat(depth);
+          const children = childrenOf(p.id as number);
+          const childLines = children.map(c => renderProject(c, depth + 1)).join('\n');
+          const line = `${indent}<project id="${p.id}" name="${p.name}" status="${p.status}">${p.description || ''}</project>`;
+          return children.length ? `${line}\n${childLines}` : line;
+        };
+
+        const overview = `<brain-overview>
+<projects>
+${roots.map(p => renderProject(p)).join('\n')}
+</projects>
+<urgent-backlog>
+${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" tags="${(b.tags as string[])?.join(',') || ''}">${b.title}</item>`).join('\n')}
+</urgent-backlog>
+<recent-sessions>
+${(recentSessions as Record<string, unknown>[]).map(s => `  <session agent="${s.agent_name}" when="${s.created_at}">${s.summary || ''}</session>`).join('\n')}
+</recent-sessions>
+</brain-overview>`;
+
+        await sql`
+          INSERT INTO agents (name, agent_type, last_seen)
+          VALUES (${agentName}, 'claude-code', NOW())
+          ON CONFLICT (name) DO UPDATE SET last_seen = NOW()
+        `;
+
+        return new Response(overview, {
+          headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      // ─── GET /context/project ──────────────────────────────────────────────
+      // On-demand full context for a specific project (by name or id)
+      if (path === "/context/project" && method === "GET") {
+        const nameQuery = url.searchParams.get("name");
+        const idQuery = url.searchParams.get("id");
+
+        let projectRows;
+        if (idQuery) {
+          projectRows = await sql`SELECT * FROM projects WHERE id = ${parseInt(idQuery)}`;
+        } else if (nameQuery) {
+          const pattern = `%${nameQuery}%`;
+          projectRows = await sql`SELECT * FROM projects WHERE name ILIKE ${pattern} ORDER BY updated_at DESC LIMIT 1`;
+        } else {
+          return error("Provide ?name= or ?id=");
+        }
+
+        if (projectRows.length === 0) return error("Project not found", 404);
+        const project = projectRows[0] as Record<string, unknown>;
+        const pid = project.id as number;
+
+        const [children, memories, sessions, tasks, backlog] = await Promise.all([
+          sql`SELECT id, name, description, status FROM projects WHERE parent_id = ${pid} ORDER BY name`,
+          sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} ORDER BY importance DESC, created_at DESC LIMIT 30`,
+          sql`SELECT agent_name, summary, created_at FROM sessions WHERE project_id = ${pid} ORDER BY created_at DESC LIMIT 10`,
+          sql`SELECT title, status, priority FROM agent_tasks WHERE project_id = ${pid} ORDER BY priority DESC, created_at DESC`,
+          sql`SELECT title, priority, tags FROM backlog_items WHERE status = 'active' ORDER BY priority DESC LIMIT 50`,
+        ]);
+
+        // Filter backlog by project tags (match project name)
+        const projectName = (project.name as string).toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const filteredBacklog = (backlog as Record<string, unknown>[]).filter(b =>
+          (b.tags as string[])?.some(t => t.toLowerCase().includes(projectName) || projectName.includes(t.toLowerCase()))
+        );
+
+        const ctx = `<project-context name="${project.name}" id="${pid}">
+<description>${project.description || ''}</description>
+${(children as Record<string, unknown>[]).length > 0 ? `<sub-projects>
+${(children as Record<string, unknown>[]).map(c => `  <project id="${c.id}" name="${c.name}" status="${c.status}">${c.description || ''}</project>`).join('\n')}
+</sub-projects>` : ''}
+<memories>
+${(memories as Record<string, unknown>[]).map(m => `  <memory category="${m.category}" importance="${m.importance}">${m.content}</memory>`).join('\n')}
+</memories>
+<sessions>
+${(sessions as Record<string, unknown>[]).map(s => `  <session agent="${s.agent_name}" when="${s.created_at}">${s.summary || ''}</session>`).join('\n')}
+</sessions>
+<tasks>
+${(tasks as Record<string, unknown>[]).map(t => `  <task status="${t.status}" priority="${t.priority}">${t.title}</task>`).join('\n')}
+</tasks>
+<backlog>
+${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`).join('\n')}
+</backlog>
+</project-context>`;
+
+        return new Response(ctx, {
+          headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      // ─── PATCH /memory/:id ─────────────────────────────────────────────────
+      if (path.match(/^\/memory\/\d+$/) && method === "PATCH") {
+        const id = parseInt(path.split("/")[2]);
+        const body = (await request.json()) as { project_id?: number | null; importance?: number; category?: string };
+        const result = await sql`
+          UPDATE memories SET
+            project_id = COALESCE(${body.project_id !== undefined ? body.project_id : null}, project_id),
+            importance = COALESCE(${body.importance || null}, importance),
+            category = COALESCE(${body.category || null}, category)
+          WHERE id = ${id}
+          RETURNING id
+        `;
+        if (result.length === 0) return error("Not found", 404);
+        return json({ ok: true });
+      }
+
       // ─── POST /memory ──────────────────────────────────────────────────────
       if (path === "/memory" && method === "POST") {
         const body = (await request.json()) as {
