@@ -32,6 +32,7 @@ export interface AgentTask {
   priority: number;
   agent_name: string | null;
   project_id: number | null;
+  issue_id: number | null;
   created_at: string;
 }
 
@@ -89,9 +90,26 @@ export interface BacklogItem {
   priority: number;
   tags: string[];
   status: string;
+  type: 'epic' | 'issue';
+  parent_id: number | null;
   project_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface BacklogIssue extends BacklogItem {
+  type: 'issue';
+  tasks: AgentTask[];
+}
+
+export interface BacklogEpic extends BacklogItem {
+  type: 'epic';
+  issues: BacklogIssue[];
+}
+
+export interface ProjectBacklog {
+  epics: BacklogEpic[];
+  unlinked_issues: BacklogIssue[];
 }
 
 export interface ProjectDetail {
@@ -100,7 +118,7 @@ export interface ProjectDetail {
   memories: Memory[];
   sessions: Session[];
   tasks: AgentTask[];
-  backlog: BacklogItem[];
+  backlog: ProjectBacklog;
   agents: Agent[];
   agentStates: AgentState[];
   cronJobs: CronJob[];

@@ -471,10 +471,33 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
         const project = projectRows[0] as Record<string, unknown>;
         const keywords = (project.name as string).toLowerCase().split(/[^a-z0-9]+/).filter((w: string) => w.length >= 3);
-        const backlog = (allBacklog as Array<Record<string, unknown>>).filter(item =>
+        const filteredBacklog = (allBacklog as Array<Record<string, unknown>>).filter(item =>
           item.project_id === id ||
           (item.tags as string[] || []).some((tag: string) => keywords.some(kw => tag.toLowerCase().includes(kw)))
         );
+
+        // Build epic→issue→task hierarchy in JS
+        const agentTasks = tasks as Array<Record<string, unknown>>;
+        const epics = filteredBacklog.filter(item => item.type === 'epic');
+        const allIssues = filteredBacklog.filter(item => item.type === 'issue');
+        const epicIds = new Set(epics.map(e => e.id as number));
+
+        const structuredEpics = epics.map(epic => {
+          const issues = allIssues.filter(issue => issue.parent_id === epic.id).map(issue => ({
+            ...issue,
+            tasks: agentTasks.filter(t => t.issue_id === issue.id),
+          }));
+          return { ...epic, issues };
+        });
+
+        const unlinkedIssues = allIssues
+          .filter(issue => issue.parent_id === null || !epicIds.has(issue.parent_id as number))
+          .map(issue => ({ ...issue, tasks: agentTasks.filter(t => t.issue_id === issue.id) }));
+
+        const backlog = {
+          epics: structuredEpics,
+          unlinked_issues: unlinkedIssues,
+        };
 
         // Agents: from sessions + any agent whose name contains a project keyword
         const sessionAgentNames = [...new Set((sessions as Array<{ agent_name: string }>).map(s => s.agent_name))];
