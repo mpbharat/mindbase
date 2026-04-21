@@ -595,11 +595,19 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── GET /sessions ─────────────────────────────────────────────────────
       if (path === "/sessions" && method === "GET") {
         const agent = url.searchParams.get("agent");
-        const limit = parseInt(url.searchParams.get("limit") || "10");
+        const days = parseInt(url.searchParams.get("days") || "0");
+        const limit = parseInt(url.searchParams.get("limit") || "50");
 
-        const sessions = agent
-          ? await sql`SELECT id, agent_name, summary, created_at FROM sessions WHERE agent_name = ${agent} ORDER BY created_at DESC LIMIT ${limit}`
-          : await sql`SELECT id, agent_name, summary, created_at FROM sessions ORDER BY created_at DESC LIMIT ${limit}`;
+        let sessions;
+        if (days > 0 && agent) {
+          sessions = await sql`SELECT s.id, s.agent_name, s.summary, s.project_id, s.created_at, p.name AS project_name FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.agent_name = ${agent} AND s.created_at >= NOW() - INTERVAL '1 day' * ${days} ORDER BY s.created_at DESC LIMIT ${limit}`;
+        } else if (days > 0) {
+          sessions = await sql`SELECT s.id, s.agent_name, s.summary, s.project_id, s.created_at, p.name AS project_name FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.created_at >= NOW() - INTERVAL '1 day' * ${days} ORDER BY s.created_at DESC LIMIT ${limit}`;
+        } else if (agent) {
+          sessions = await sql`SELECT s.id, s.agent_name, s.summary, s.project_id, s.created_at, p.name AS project_name FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.agent_name = ${agent} ORDER BY s.created_at DESC LIMIT ${limit}`;
+        } else {
+          sessions = await sql`SELECT s.id, s.agent_name, s.summary, s.project_id, s.created_at, p.name AS project_name FROM sessions s LEFT JOIN projects p ON p.id = s.project_id ORDER BY s.created_at DESC LIMIT ${limit}`;
+        }
 
         return json({ sessions });
       }

@@ -1,4 +1,4 @@
-import type { Agent, AgentState, CronJob, DashboardData, ProjectDetail, ProjectSummary, Subagent } from './types';
+import type { Agent, AgentState, CronJob, DashboardData, ProjectDetail, ProjectSummary, Session, Subagent } from './types';
 
 const isDev = import.meta.env.DEV;
 const BASE = isDev ? import.meta.env.VITE_BRAIN_URL as string : '/api';
@@ -34,4 +34,9 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
 export async function fetchProjectDetail(id: number): Promise<ProjectDetail> {
   return get<ProjectDetail>(`/project/${id}`);
+}
+
+export async function fetchRecentSessions(days: number): Promise<Session[]> {
+  const data = await get<{ sessions: Session[] }>(`/sessions?days=${days}&limit=100`);
+  return data.sessions;
 }

@@ -58,6 +58,7 @@ export interface Session {
   agent_name: string;
   summary: string | null;
   project_id: number | null;
+  project_name: string | null;
   created_at: string;
 }
 

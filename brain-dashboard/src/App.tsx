@@ -4,6 +4,7 @@ import type { DashboardData } from './types';
 import { ProjectGrid } from './components/ProjectGrid';
 import { ProjectDetail } from './components/ProjectDetail';
 import { UnknownCard } from './components/UnknownCard';
+import { SessionsPanel } from './components/SessionsPanel';
 import { s, relativeTime } from './styles';
 
 export default function App() {
@@ -74,6 +75,8 @@ export default function App() {
         subagents={d.subagents}
         unlinked={d.unlinked}
       />
+
+      <SessionsPanel />
     </div>
   );
 }
