@@ -497,6 +497,26 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
       }
 
+      // ─── GET /backlog ──────────────────────────────────────────────────────
+      if (path === "/backlog" && method === "GET") {
+        const status = url.searchParams.get("status") || "active";
+        const items = await sql`SELECT * FROM backlog_items WHERE status = ${status} ORDER BY priority DESC, created_at DESC`;
+        return json({ items });
+      }
+
+      // ─── PATCH /backlog/:id ────────────────────────────────────────────────
+      if (path.match(/^\/backlog\/\d+$/) && method === "PATCH") {
+        const id = parseInt(path.split("/")[2]);
+        const body = (await request.json()) as { status?: string; priority?: number };
+        await sql`
+          UPDATE backlog_items SET
+            status = COALESCE(${body.status || null}, status),
+            priority = COALESCE(${body.priority || null}, priority)
+          WHERE id = ${id}
+        `;
+        return json({ ok: true });
+      }
+
       // ─── POST /session ─────────────────────────────────────────────────────
       if (path === "/session" && method === "POST") {
         const body = (await request.json()) as { agent_name: string; summary?: string; session_data?: unknown };
