@@ -81,12 +81,28 @@ export interface Subagent {
   completed_at: string | null;
 }
 
+export interface BacklogItem {
+  id: number;
+  title: string;
+  description: string | null;
+  priority: number;
+  tags: string[];
+  status: string;
+  project_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProjectDetail {
   project: Project;
   children: Project[];
   memories: Memory[];
   sessions: Session[];
   tasks: AgentTask[];
+  backlog: BacklogItem[];
+  agents: Agent[];
+  agentStates: AgentState[];
+  cronJobs: CronJob[];
 }
 
 export interface DashboardData {

@@ -458,15 +458,37 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── GET /project/:id ──────────────────────────────────────────────────
       if (path.match(/^\/project\/\d+$/) && method === "GET") {
         const id = parseInt(path.split("/")[2]);
-        const [projectRows, children, memories, sessions, tasks] = await Promise.all([
+        const [projectRows, children, memories, sessions, tasks, allBacklog] = await Promise.all([
           sql`SELECT * FROM projects WHERE id = ${id}`,
           sql`SELECT * FROM projects WHERE parent_id = ${id} ORDER BY name`,
           sql`SELECT * FROM memories WHERE project_id = ${id} ORDER BY importance DESC, created_at DESC`,
           sql`SELECT id, agent_name, summary, created_at FROM sessions WHERE project_id = ${id} ORDER BY created_at DESC LIMIT 20`,
           sql`SELECT * FROM agent_tasks WHERE project_id = ${id} ORDER BY priority DESC, created_at DESC`,
+          sql`SELECT * FROM backlog_items ORDER BY priority DESC, created_at DESC`,
         ]);
         if (projectRows.length === 0) return error("Not found", 404);
-        return json({ project: projectRows[0], children, memories, sessions, tasks });
+
+        const project = projectRows[0] as Record<string, unknown>;
+        const keywords = (project.name as string).toLowerCase().split(/[^a-z0-9]+/).filter((w: string) => w.length >= 3);
+        const backlog = (allBacklog as Array<Record<string, unknown>>).filter(item =>
+          item.project_id === id ||
+          (item.tags as string[] || []).some((tag: string) => keywords.some(kw => tag.toLowerCase().includes(kw)))
+        );
+
+        // Agents that worked on this project
+        const agentNames = [...new Set((sessions as Array<{ agent_name: string }>).map(s => s.agent_name))];
+        let agents: unknown[] = [];
+        let agentStates: unknown[] = [];
+        let cronJobs: unknown[] = [];
+        if (agentNames.length > 0) {
+          [agents, agentStates, cronJobs] = await Promise.all([
+            sql`SELECT * FROM agents WHERE name = ANY(${agentNames})`,
+            sql`SELECT * FROM agent_states WHERE agent_name = ANY(${agentNames})`,
+            sql`SELECT * FROM cron_jobs WHERE agent_name = ANY(${agentNames})`,
+          ]);
+        }
+
+        return json({ project, children, memories, sessions, tasks, backlog, agents, agentStates, cronJobs });
       }
 
       // ─── PUT /project/:id ──────────────────────────────────────────────────
