@@ -106,6 +106,45 @@ The setup script does:
 3. Installs the SessionStart hook into `~/.claude/settings.json`
 4. Copies the machine-specific close-session skill
 
+### If settings.json already exists
+The script will warn and print the hook command. Add it manually to `~/.claude/settings.json`:
+
+**Mac:**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRAIN_API_KEY=\"BRAIN_API_KEY_PLACEHOLDER\" BRAIN_URL=\"https://brain-worker.YOUR_SUBDOMAIN.workers.dev\" BRAIN_AGENT_NAME=\"claude-mac:$(basename $PWD)\" node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js context"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Ubuntu:**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "BRAIN_API_KEY=\"BRAIN_API_KEY_PLACEHOLDER\" BRAIN_URL=\"https://brain-worker.YOUR_SUBDOMAIN.workers.dev\" BRAIN_AGENT_NAME=\"claude-ubuntu:$(basename $PWD)\" node /home/YOUR_USERNAME/Documents/Claude/LifeOS/brain-cli/dist/index.js context"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ### After setup
 Start a new Claude Code session. You'll see `<brain-overview>` injected automatically. Done.
 
