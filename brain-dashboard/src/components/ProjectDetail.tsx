@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { fetchProjectDetail } from '../api';
-import type { ProjectDetail as PD } from '../types';
+import { fetchProjectDetail, createBacklogItem, updateBacklogItem } from '../api';
+import type { ProjectDetail as PD, BacklogEpic, BacklogIssue } from '../types';
 import { s, statusColor, relativeTime } from '../styles';
 
 const c = s.colors;
@@ -13,9 +13,6 @@ const categoryColor: Record<string, string> = {
   general: '#9ca3af',
 };
 
-const priorityColor = (p: number) =>
-  p >= 9 ? '#f87171' : p >= 7 ? '#fbbf24' : p >= 5 ? '#60a5fa' : '#6b7280';
-
 const taskStatusColor: Record<string, string> = {
   completed: '#34d399',
   done: '#34d399',
@@ -25,7 +22,7 @@ const taskStatusColor: Record<string, string> = {
   blocked: '#f87171',
 };
 
-function Widget({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+function Widget({ title, count, children, headerExtra }: { title: string; count?: number; children: React.ReactNode; headerExtra?: React.ReactNode }) {
   return (
     <div style={{
       background: c.surface,
@@ -47,11 +44,276 @@ function Widget({ title, count, children }: { title: string; count?: number; chi
             {count}
           </span>
         )}
+        {headerExtra && <div style={{ marginLeft: 'auto' }}>{headerExtra}</div>}
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {children}
       </div>
     </div>
+  );
+}
+
+type InlineForm = { type: 'epic' } | { type: 'issue'; epicId: number } | { type: 'edit-issue'; issue: BacklogIssue; epicId: number | null };
+
+function priorityBadge(p: number) {
+  const col = p >= 9 ? '#f87171' : p >= 7 ? '#fbbf24' : p >= 5 ? '#60a5fa' : '#6b7280';
+  return <span style={{ fontSize: 10, fontWeight: 700, color: col, flexShrink: 0 }}>P{p}</span>;
+}
+
+function StatusToggle({ status, onToggle }: { status: string; onToggle: () => void }) {
+  const isDone = status === 'done';
+  const col = isDone ? '#34d399' : '#60a5fa';
+  return (
+    <button
+      onClick={onToggle}
+      title="Toggle status"
+      style={{
+        fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0, cursor: 'pointer',
+        background: `${col}22`, color: col, border: 'none', fontWeight: 600,
+      }}
+    >
+      {status}
+    </button>
+  );
+}
+
+function BacklogWidget({ projectId, backlog, reload }: {
+  projectId: number;
+  backlog: PD['backlog'];
+  reload: () => void;
+}) {
+  const [form, setForm] = useState<InlineForm | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formPriority, setFormPriority] = useState(7);
+  const [formEpicId, setFormEpicId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const totalCount = backlog.epics.length + backlog.unlinked_issues.length;
+
+  function openForm(f: InlineForm) {
+    setForm(f);
+    if (f.type === 'edit-issue') {
+      setFormTitle(f.issue.title);
+      setFormPriority(f.issue.priority);
+      setFormEpicId(f.epicId);
+    } else {
+      setFormTitle('');
+      setFormPriority(7);
+      setFormEpicId(f.type === 'issue' ? f.epicId : null);
+    }
+  }
+
+  function cancelForm() { setForm(null); }
+
+  async function handleSave() {
+    if (!formTitle.trim()) return;
+    setSaving(true);
+    try {
+      if (!form) return;
+      if (form.type === 'epic') {
+        await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'epic', project_id: projectId });
+      } else if (form.type === 'issue') {
+        await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'issue', parent_id: form.epicId, project_id: projectId });
+      } else if (form.type === 'edit-issue') {
+        await updateBacklogItem(form.issue.id, { title: formTitle.trim(), priority: formPriority, parent_id: formEpicId });
+      }
+      setForm(null);
+      reload();
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleStatus(id: number, current: string) {
+    const next = current === 'done' ? 'active' : 'done';
+    await updateBacklogItem(id, { status: next });
+    reload();
+  }
+
+  const inputStyle = {
+    background: '#111', border: `1px solid ${c.border}`, color: c.text,
+    borderRadius: 5, padding: '4px 8px', fontSize: 12, outline: 'none',
+  } as React.CSSProperties;
+
+  const btnStyle = (primary: boolean) => ({
+    background: primary ? '#4a9eff22' : 'transparent',
+    border: `1px solid ${primary ? '#4a9eff' : c.border}`,
+    color: primary ? '#4a9eff' : c.muted,
+    borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
+  } as React.CSSProperties);
+
+  function InlineFormRow({ label }: { label: string }) {
+    return (
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 8px', background: '#ffffff08', borderRadius: 6, marginTop: 4, marginBottom: 4 }}>
+        <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>{label}</span>
+        <input
+          autoFocus
+          value={formTitle}
+          onChange={e => setFormTitle(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelForm(); }}
+          placeholder="Title…"
+          style={{ ...inputStyle, flex: 1 }}
+        />
+        <input
+          type="number"
+          value={formPriority}
+          onChange={e => setFormPriority(Number(e.target.value))}
+          min={1} max={10}
+          style={{ ...inputStyle, width: 44, textAlign: 'center' }}
+        />
+        {form?.type === 'edit-issue' && (
+          <select
+            value={formEpicId ?? ''}
+            onChange={e => setFormEpicId(e.target.value === '' ? null : Number(e.target.value))}
+            style={{ ...inputStyle, maxWidth: 120 }}
+          >
+            <option value="">No epic</option>
+            {backlog.epics.map(ep => (
+              <option key={ep.id} value={ep.id}>{ep.title}</option>
+            ))}
+          </select>
+        )}
+        <button onClick={handleSave} disabled={saving} style={btnStyle(true)}>Save</button>
+        <button onClick={cancelForm} style={btnStyle(false)}>Cancel</button>
+      </div>
+    );
+  }
+
+  function EpicRow({ epic }: { epic: BacklogEpic }) {
+    const isDone = epic.status === 'done';
+    return (
+      <div style={{ marginBottom: 8 }}>
+        {/* Epic header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '6px 8px', borderRadius: 6,
+          background: isDone ? 'rgba(52,211,153,0.04)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${isDone ? '#34d39920' : c.border}`,
+          opacity: isDone ? 0.6 : 1,
+        }}>
+          <span style={{ fontSize: 12, flexShrink: 0 }}>📋</span>
+          {priorityBadge(epic.priority)}
+          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: c.text, textDecoration: isDone ? 'line-through' : 'none' }}>
+            {epic.title}
+          </span>
+          <StatusToggle status={epic.status} onToggle={() => toggleStatus(epic.id, epic.status)} />
+          <button
+            onClick={() => openForm({ type: 'issue', epicId: epic.id })}
+            style={{ ...btnStyle(false), fontSize: 10, padding: '2px 7px' }}
+          >
+            + Issue
+          </button>
+        </div>
+
+        {/* Issues under epic */}
+        {epic.issues.map(issue => (
+          <IssueRow key={issue.id} issue={issue} epicId={epic.id} indent={1} />
+        ))}
+
+        {/* Inline form for new issue under this epic */}
+        {form?.type === 'issue' && form.epicId === epic.id && (
+          <div style={{ marginLeft: 16 }}>
+            <InlineFormRow label="Issue" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function IssueRow({ issue, epicId, indent }: { issue: BacklogIssue; epicId: number | null; indent: number }) {
+    const isDone = issue.status === 'done';
+    return (
+      <div style={{ marginLeft: indent * 16, marginTop: 3 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 8px', borderRadius: 5,
+          background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)',
+          border: `1px solid ${isDone ? '#34d39918' : '#ffffff0a'}`,
+          opacity: isDone ? 0.55 : 1,
+        }}>
+          <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>└─</span>
+          {priorityBadge(issue.priority)}
+          <span style={{ flex: 1, fontSize: 12, color: c.text, textDecoration: isDone ? 'line-through' : 'none' }}>
+            {issue.title}
+          </span>
+          <StatusToggle status={issue.status} onToggle={() => toggleStatus(issue.id, issue.status)} />
+          <button
+            onClick={() => openForm({ type: 'edit-issue', issue, epicId })}
+            style={{ ...btnStyle(false), fontSize: 10, padding: '2px 7px' }}
+          >
+            edit
+          </button>
+        </div>
+
+        {/* Agent tasks under issue */}
+        {issue.tasks.map(task => {
+          const tCol = task.status === 'done' || task.status === 'completed' ? '#34d399'
+            : task.status === 'active' || task.status === 'in-progress' ? '#60a5fa'
+            : '#fbbf24';
+          return (
+            <div key={task.id} style={{
+              marginLeft: 16, marginTop: 2,
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px',
+              opacity: 0.5,
+            }}>
+              <span style={{ fontSize: 10, color: c.muted }}>└─</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: tCol, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: c.muted, flex: 1 }}>
+                Task: {task.title.length > 50 ? task.title.slice(0, 50) + '…' : task.title}
+              </span>
+              <span style={{ fontSize: 9, color: tCol }}>{task.status}</span>
+            </div>
+          );
+        })}
+
+        {/* Inline edit form */}
+        {form?.type === 'edit-issue' && form.issue.id === issue.id && (
+          <div style={{ marginLeft: 16 }}>
+            <InlineFormRow label="Edit" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const addEpicBtn = (
+    <button
+      onClick={() => openForm({ type: 'epic' })}
+      style={btnStyle(false)}
+    >
+      + Epic
+    </button>
+  );
+
+  return (
+    <Widget title="Backlog" count={totalCount} headerExtra={addEpicBtn}>
+      {totalCount === 0 && !form ? (
+        <Empty msg="No backlog items for this project." />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Inline form for new epic */}
+          {form?.type === 'epic' && <InlineFormRow label="Epic" />}
+
+          {/* Epics */}
+          {backlog.epics.map(epic => <EpicRow key={epic.id} epic={epic} />)}
+
+          {/* Unlinked Issues */}
+          {backlog.unlinked_issues.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: c.muted, borderTop: `1px solid ${c.border}`, paddingTop: 8, marginBottom: 6 }}>
+                ── Unlinked Issues ──
+              </div>
+              {backlog.unlinked_issues.map(issue => (
+                <IssueRow key={issue.id} issue={issue} epicId={null} indent={0} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Widget>
   );
 }
 
@@ -63,6 +325,10 @@ export function ProjectDetail({ projectId, onBack }: { projectId: number; onBack
   const [data, setData] = useState<PD | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  function reload() {
+    fetchProjectDetail(projectId).then(setData).catch(() => {});
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -123,55 +389,7 @@ export function ProjectDetail({ projectId, onBack }: { projectId: number; onBack
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
             {/* Widget 1 — Backlog */}
-            <Widget title="Backlog" count={data.backlog.length}>
-              {data.backlog.length === 0 ? (
-                <Empty msg="No backlog items for this project." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {data.backlog.map(item => (
-                    <div key={item.id} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 8,
-                      padding: '8px 10px', borderRadius: 7,
-                      background: item.status === 'done' ? 'rgba(52,211,153,0.04)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${item.status === 'done' ? '#34d39920' : c.border}`,
-                      opacity: item.status === 'done' ? 0.55 : 1,
-                    }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: priorityColor(item.priority),
-                        flexShrink: 0, marginTop: 1, minWidth: 14, textAlign: 'right',
-                      }}>
-                        P{item.priority}
-                      </span>
-                      <div style={{ flex: 1 }}>
-                        <span style={{
-                          fontSize: 12, color: c.text,
-                          textDecoration: item.status === 'done' ? 'line-through' : 'none',
-                        }}>
-                          {item.title}
-                        </span>
-                        {item.tags.length > 0 && (
-                          <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                            {item.tags.map(tag => (
-                              <span key={tag} style={{
-                                fontSize: 9, padding: '1px 5px', borderRadius: 4,
-                                background: 'rgba(255,255,255,0.06)', color: c.muted,
-                              }}>{tag}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <span style={{
-                        fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-                        background: item.status === 'done' ? '#34d39922' : '#fbbf2422',
-                        color: item.status === 'done' ? '#34d399' : '#fbbf24',
-                      }}>
-                        {item.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Widget>
+            <BacklogWidget projectId={data.project.id} backlog={data.backlog} reload={reload} />
 
             {/* Widget 2 — Active Tasks */}
             <Widget title="Tasks" count={data.tasks.length}>
