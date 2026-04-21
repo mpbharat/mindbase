@@ -148,6 +148,14 @@ The script will warn and print the hook command. Add it manually to `~/.claude/s
 ### After setup
 Start a new Claude Code session. You'll see `<brain-overview>` injected automatically. Done.
 
+### What works without any plugins
+- Brain overview at session start (hook-driven, always runs)
+- Close-session protocol (baked into CLAUDE.md Section 9)
+- Mid-session project fetch (baked into CLAUDE.md Section 8 — Claude follows it automatically)
+
+### What requires the superpowers plugin
+The `using-superpowers` skill enforces that Claude checks all available skills before responding. Without it, Claude still follows CLAUDE.md but won't proactively invoke skill files. Install superpowers if you want skill-level enforcement on top of CLAUDE.md.
+
 ---
 
 ## Updating Other Machines
