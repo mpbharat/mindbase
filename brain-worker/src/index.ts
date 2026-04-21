@@ -475,16 +475,23 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
           (item.tags as string[] || []).some((tag: string) => keywords.some(kw => tag.toLowerCase().includes(kw)))
         );
 
-        // Agents that worked on this project
-        const agentNames = [...new Set((sessions as Array<{ agent_name: string }>).map(s => s.agent_name))];
+        // Agents: from sessions + any agent whose name contains a project keyword
+        const sessionAgentNames = [...new Set((sessions as Array<{ agent_name: string }>).map(s => s.agent_name))];
+        const nameKeyword = `%${keywords[keywords.length - 1] || keywords[0] || ''}%`;
         let agents: unknown[] = [];
         let agentStates: unknown[] = [];
         let cronJobs: unknown[] = [];
-        if (agentNames.length > 0) {
+        if (sessionAgentNames.length > 0) {
           [agents, agentStates, cronJobs] = await Promise.all([
-            sql`SELECT * FROM agents WHERE name = ANY(${agentNames})`,
-            sql`SELECT * FROM agent_states WHERE agent_name = ANY(${agentNames})`,
-            sql`SELECT * FROM cron_jobs WHERE agent_name = ANY(${agentNames})`,
+            sql`SELECT * FROM agents WHERE name = ANY(${sessionAgentNames}) OR name ILIKE ${nameKeyword}`,
+            sql`SELECT * FROM agent_states WHERE agent_name = ANY(${sessionAgentNames}) OR agent_name ILIKE ${nameKeyword}`,
+            sql`SELECT * FROM cron_jobs WHERE agent_name = ANY(${sessionAgentNames}) OR agent_name ILIKE ${nameKeyword}`,
+          ]);
+        } else {
+          [agents, agentStates, cronJobs] = await Promise.all([
+            sql`SELECT * FROM agents WHERE name ILIKE ${nameKeyword}`,
+            sql`SELECT * FROM agent_states WHERE agent_name ILIKE ${nameKeyword}`,
+            sql`SELECT * FROM cron_jobs WHERE agent_name ILIKE ${nameKeyword}`,
           ]);
         }
 
