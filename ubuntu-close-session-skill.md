@@ -27,22 +27,30 @@ Only save things that would take >10 min to reconstruct. Skip what's obvious fro
 
 Project IDs: Zaasu=2, KPS/Mart=3, Anchor=1, Personal=6, LifeOS=8, Mart PIM SaaS=7, Data Extraction=12, Lead Research=13, Outreach=14, Health=4, Dhiya=5, EvolveViaAI=9, LinkedIn=10, Dhis=11
 
-## Step 3 — Save concrete next-step tasks (1–3 max)
+## Step 3 — Save tasks and issues
+
+**Tasks** (completed or to-do within this session — save as agent_task):
 ```bash
 curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/task" \
   -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
-  -d '{"title":"<specific next action>","priority":<1-10>,"status":"pending","agent_name":"claude-ubuntu:<Label>","project_id":<id or null>}'
+  -d '{"title":"<specific action done or to do>","priority":<1-10>,"status":"pending","agent_name":"claude-ubuntu:<Label>","project_id":<id or null>}'
 ```
-Tasks = concrete next actions. Skip if nothing specific to do next.
 
-## Step 4 — Save backlog items (broader future ideas, not immediate next steps)
+**Issues** (started but will spill to next session — save as backlog_item type=issue):
 ```bash
 curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
   -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
-  -d '{"title":"<what to build>","priority":<1-10>,"tags":["<project>"]}'
+  -d '{"title":"<what was started but unfinished>","priority":<1-10>,"type":"issue","parent_id":<epic id if known, else null>,"project_id":<id or null>,"tags":["<project>"]}'
 ```
+
+**Epics** = NEVER auto-create. These are planned upfront in the dashboard.
+
+**Decision guide:**
+- Did this session complete it? → agent_task (status: completed or pending for next)
+- Started but needs another session? → backlog_item type=issue
+- Big initiative spanning weeks? → Epic (create manually in dashboard, not here)
 
 ## Step 5 — brain-cli save
 ```bash

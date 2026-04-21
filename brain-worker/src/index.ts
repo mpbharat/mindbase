@@ -296,13 +296,14 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── PUT /task/:id ─────────────────────────────────────────────────────
       if (path.startsWith("/task/") && method === "PUT") {
         const id = parseInt(path.split("/")[2]);
-        const body = (await request.json()) as { status?: string; result?: string };
-        const { status, result: taskResult } = body;
+        const body = (await request.json()) as { status?: string; result?: string; issue_id?: number | null };
+        const { status, result: taskResult, issue_id } = body;
 
         await sql`
           UPDATE agent_tasks
           SET status = COALESCE(${status || null}, status),
               result = COALESCE(${taskResult || null}, result),
+              issue_id = CASE WHEN ${issue_id !== undefined} THEN ${issue_id ?? null} ELSE issue_id END,
               updated_at = NOW()
           WHERE id = ${id}
         `;
@@ -470,10 +471,33 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
         const project = projectRows[0] as Record<string, unknown>;
         const keywords = (project.name as string).toLowerCase().split(/[^a-z0-9]+/).filter((w: string) => w.length >= 3);
-        const backlog = (allBacklog as Array<Record<string, unknown>>).filter(item =>
+        const filteredBacklog = (allBacklog as Array<Record<string, unknown>>).filter(item =>
           item.project_id === id ||
           (item.tags as string[] || []).some((tag: string) => keywords.some(kw => tag.toLowerCase().includes(kw)))
         );
+
+        // Build epic→issue→task hierarchy in JS
+        const agentTasks = tasks as Array<Record<string, unknown>>;
+        const epics = filteredBacklog.filter(item => item.type === 'epic');
+        const allIssues = filteredBacklog.filter(item => item.type === 'issue');
+        const epicIds = new Set(epics.map(e => e.id as number));
+
+        const structuredEpics = epics.map(epic => {
+          const issues = allIssues.filter(issue => issue.parent_id === epic.id).map(issue => ({
+            ...issue,
+            tasks: agentTasks.filter(t => t.issue_id === issue.id),
+          }));
+          return { ...epic, issues };
+        });
+
+        const unlinkedIssues = allIssues
+          .filter(issue => issue.parent_id === null || !epicIds.has(issue.parent_id as number))
+          .map(issue => ({ ...issue, tasks: agentTasks.filter(t => t.issue_id === issue.id) }));
+
+        const backlog = {
+          epics: structuredEpics,
+          unlinked_issues: unlinkedIssues,
+        };
 
         // Agents: from sessions + any agent whose name contains a project keyword
         const sessionAgentNames = [...new Set((sessions as Array<{ agent_name: string }>).map(s => s.agent_name))];
@@ -515,12 +539,12 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
       // ─── POST /backlog ─────────────────────────────────────────────────────
       if (path === "/backlog" && method === "POST") {
-        const body = (await request.json()) as { title: string; priority?: number; tags?: string[] };
-        const { title, priority = 5, tags = [] } = body;
+        const body = (await request.json()) as { title: string; priority?: number; tags?: string[]; type?: string; parent_id?: number | null; project_id?: number | null };
+        const { title, priority = 5, tags = [], type = 'issue', parent_id = null, project_id = null } = body;
 
         const result = await sql`
-          INSERT INTO backlog_items (title, priority, tags, status)
-          VALUES (${title}, ${priority}, ${JSON.stringify(tags)}, 'active')
+          INSERT INTO backlog_items (title, priority, tags, status, type, parent_id, project_id)
+          VALUES (${title}, ${priority}, ${JSON.stringify(tags)}, 'active', ${type}, ${parent_id}, ${project_id})
           RETURNING id
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
@@ -576,11 +600,14 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── PATCH /backlog/:id ────────────────────────────────────────────────
       if (path.match(/^\/backlog\/\d+$/) && method === "PATCH") {
         const id = parseInt(path.split("/")[2]);
-        const body = (await request.json()) as { status?: string; priority?: number };
+        const body = (await request.json()) as { status?: string; priority?: number; type?: string; parent_id?: number | null; title?: string };
         await sql`
           UPDATE backlog_items SET
+            title = COALESCE(${body.title || null}, title),
             status = COALESCE(${body.status || null}, status),
-            priority = COALESCE(${body.priority || null}, priority)
+            priority = COALESCE(${body.priority || null}, priority),
+            type = COALESCE(${body.type || null}, type),
+            parent_id = CASE WHEN ${body.parent_id !== undefined} THEN ${body.parent_id ?? null} ELSE parent_id END
           WHERE id = ${id}
         `;
         return json({ ok: true });
