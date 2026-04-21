@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS backlog_items (
   priority     INTEGER NOT NULL DEFAULT 5,
   tags         JSONB NOT NULL DEFAULT '[]',
   status       TEXT NOT NULL DEFAULT 'active',    -- active | done | dropped
+  type         TEXT NOT NULL DEFAULT 'issue',     -- epic | issue | task
+  parent_id    INTEGER REFERENCES backlog_items(id) ON DELETE SET NULL,
   project_id   INTEGER REFERENCES projects(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()

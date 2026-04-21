@@ -539,12 +539,12 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
       // ─── POST /backlog ─────────────────────────────────────────────────────
       if (path === "/backlog" && method === "POST") {
-        const body = (await request.json()) as { title: string; priority?: number; tags?: string[]; type?: string; parent_id?: number | null };
-        const { title, priority = 5, tags = [], type = 'issue', parent_id = null } = body;
+        const body = (await request.json()) as { title: string; priority?: number; tags?: string[]; type?: string; parent_id?: number | null; project_id?: number | null };
+        const { title, priority = 5, tags = [], type = 'issue', parent_id = null, project_id = null } = body;
 
         const result = await sql`
-          INSERT INTO backlog_items (title, priority, tags, status, type, parent_id)
-          VALUES (${title}, ${priority}, ${JSON.stringify(tags)}, 'active', ${type}, ${parent_id})
+          INSERT INTO backlog_items (title, priority, tags, status, type, parent_id, project_id)
+          VALUES (${title}, ${priority}, ${JSON.stringify(tags)}, 'active', ${type}, ${parent_id}, ${project_id})
           RETURNING id
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
@@ -600,9 +600,10 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── PATCH /backlog/:id ────────────────────────────────────────────────
       if (path.match(/^\/backlog\/\d+$/) && method === "PATCH") {
         const id = parseInt(path.split("/")[2]);
-        const body = (await request.json()) as { status?: string; priority?: number; type?: string; parent_id?: number | null };
+        const body = (await request.json()) as { status?: string; priority?: number; type?: string; parent_id?: number | null; title?: string };
         await sql`
           UPDATE backlog_items SET
+            title = COALESCE(${body.title || null}, title),
             status = COALESCE(${body.status || null}, status),
             priority = COALESCE(${body.priority || null}, priority),
             type = COALESCE(${body.type || null}, type),
