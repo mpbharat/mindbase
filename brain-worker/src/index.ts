@@ -600,14 +600,15 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── PATCH /backlog/:id ────────────────────────────────────────────────
       if (path.match(/^\/backlog\/\d+$/) && method === "PATCH") {
         const id = parseInt(path.split("/")[2]);
-        const body = (await request.json()) as { status?: string; priority?: number; type?: string; parent_id?: number | null; title?: string };
+        const body = (await request.json()) as { status?: string; priority?: number; type?: string; parent_id?: number | null; project_id?: number | null; title?: string };
         await sql`
           UPDATE backlog_items SET
             title = COALESCE(${body.title || null}, title),
             status = COALESCE(${body.status || null}, status),
             priority = COALESCE(${body.priority || null}, priority),
             type = COALESCE(${body.type || null}, type),
-            parent_id = CASE WHEN ${body.parent_id !== undefined} THEN ${body.parent_id ?? null} ELSE parent_id END
+            parent_id = CASE WHEN ${body.parent_id !== undefined} THEN ${body.parent_id ?? null} ELSE parent_id END,
+            project_id = CASE WHEN ${body.project_id !== undefined} THEN ${body.project_id ?? null} ELSE project_id END
           WHERE id = ${id}
         `;
         return json({ ok: true });

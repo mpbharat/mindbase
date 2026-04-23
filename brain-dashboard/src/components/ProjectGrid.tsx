@@ -115,17 +115,57 @@ function ProjectCard({ project, children, onSelect }: {
   );
 }
 
+function isActive(p: ProjectSummary) {
+  return p.memory_count > 0 || p.task_count > 0 || !!p.last_session_at;
+}
+
 export function ProjectGrid({ projects, onSelect }: Props) {
   const roots = projects.filter(p => !p.parent_id);
   const childrenOf = (id: number) => projects.filter(p => p.parent_id === id);
 
-  if (roots.length === 0) return <p style={{ color: c.muted, fontSize: 13 }}>No active projects.</p>;
+  const active = roots.filter(isActive);
+  const inactive = roots.filter(p => !isActive(p));
+
+  if (roots.length === 0) return <p style={{ color: c.muted, fontSize: 13 }}>No projects.</p>;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
-      {roots.map(p => (
-        <ProjectCard key={p.id} project={p} children={childrenOf(p.id)} onSelect={onSelect} />
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Active projects — full cards */}
+      {active.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+          {active.map(p => (
+            <ProjectCard key={p.id} project={p} children={childrenOf(p.id)} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+
+      {/* Inactive / empty projects — compact chips */}
+      {inactive.length > 0 && (
+        <div>
+          <p style={{ color: c.muted, fontSize: 11, margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Empty projects
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {inactive.map(p => (
+              <div
+                key={p.id}
+                onClick={() => onSelect(p.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 20,
+                  background: c.surface, border: `1px solid ${c.border}`,
+                  cursor: 'pointer', opacity: 0.6,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(p.status), flexShrink: 0 }} />
+                <span style={{ color: c.text, fontSize: 12 }}>{p.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

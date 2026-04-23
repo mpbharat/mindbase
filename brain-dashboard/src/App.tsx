@@ -39,6 +39,7 @@ export default function App() {
       <ProjectDetail
         projectId={selectedProjectId}
         onBack={() => setSelectedProjectId(null)}
+        onSelect={setSelectedProjectId}
       />
     );
   }

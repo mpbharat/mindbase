@@ -65,7 +65,7 @@ function StatusToggle({ status, onToggle }: { status: string; onToggle: () => vo
   const col = isDone ? '#34d399' : '#60a5fa';
   return (
     <button
-      onClick={onToggle}
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
       title="Toggle status"
       style={{
         fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0, cursor: 'pointer',
@@ -85,6 +85,7 @@ function BacklogWidget({ projectId, backlog, reload }: {
   const [form, setForm] = useState<InlineForm | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formPriority, setFormPriority] = useState(7);
+  const [expandedIssues, setExpandedIssues] = useState<Set<number>>(new Set());
   const [formEpicId, setFormEpicId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -224,31 +225,49 @@ function BacklogWidget({ projectId, backlog, reload }: {
 
   function IssueRow({ issue, epicId, indent }: { issue: BacklogIssue; epicId: number | null; indent: number }) {
     const isDone = issue.status === 'done';
+    const isExpanded = expandedIssues.has(issue.id);
+    const hasTasks = issue.tasks.length > 0;
+    const toggleExpand = () => {
+      if (!hasTasks) return;
+      setExpandedIssues(prev => {
+        const next = new Set(prev);
+        next.has(issue.id) ? next.delete(issue.id) : next.add(issue.id);
+        return next;
+      });
+    };
     return (
       <div style={{ marginLeft: indent * 16, marginTop: 3 }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '5px 8px', borderRadius: 5,
-          background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)',
-          border: `1px solid ${isDone ? '#34d39918' : '#ffffff0a'}`,
-          opacity: isDone ? 0.55 : 1,
-        }}>
+        <div
+          onClick={toggleExpand}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '5px 8px', borderRadius: 5,
+            background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${isDone ? '#34d39918' : '#ffffff0a'}`,
+            opacity: isDone ? 0.55 : 1,
+            cursor: hasTasks ? 'pointer' : 'default',
+          }}>
           <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>└─</span>
           {priorityBadge(issue.priority)}
           <span style={{ flex: 1, fontSize: 12, color: c.text, textDecoration: isDone ? 'line-through' : 'none' }}>
             {issue.title}
           </span>
+          {hasTasks && (
+            <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>
+              {isExpanded ? '▾' : '▸'} {issue.tasks.length} task{issue.tasks.length !== 1 ? 's' : ''}
+            </span>
+          )}
           <StatusToggle status={issue.status} onToggle={() => toggleStatus(issue.id, issue.status)} />
           <button
-            onClick={() => openForm({ type: 'edit-issue', issue, epicId })}
+            onClick={(e) => { e.stopPropagation(); openForm({ type: 'edit-issue', issue, epicId }); }}
             style={{ ...btnStyle(false), fontSize: 10, padding: '2px 7px' }}
           >
             edit
           </button>
         </div>
 
-        {/* Agent tasks under issue */}
-        {issue.tasks.map(task => {
+        {/* Agent tasks — only shown when expanded */}
+        {isExpanded && issue.tasks.map(task => {
           const tCol = task.status === 'done' || task.status === 'completed' ? '#34d399'
             : task.status === 'active' || task.status === 'in-progress' ? '#60a5fa'
             : '#fbbf24';
@@ -262,7 +281,7 @@ function BacklogWidget({ projectId, backlog, reload }: {
               <span style={{ fontSize: 10, color: c.muted }}>└─</span>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: tCol, flexShrink: 0 }} />
               <span style={{ fontSize: 11, color: c.muted, flex: 1 }}>
-                Task: {task.title.length > 50 ? task.title.slice(0, 50) + '…' : task.title}
+                {task.title.length > 55 ? task.title.slice(0, 55) + '…' : task.title}
               </span>
               <span style={{ fontSize: 9, color: tCol }}>{task.status}</span>
             </div>
@@ -321,7 +340,7 @@ function Empty({ msg }: { msg: string }) {
   return <p style={{ color: c.muted, fontSize: 12, margin: 0, fontStyle: 'italic' }}>{msg}</p>;
 }
 
-export function ProjectDetail({ projectId, onBack }: { projectId: number; onBack: () => void }) {
+export function ProjectDetail({ projectId, onBack, onSelect }: { projectId: number; onBack: () => void; onSelect: (id: number) => void }) {
   const [data, setData] = useState<PD | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -373,9 +392,10 @@ export function ProjectDetail({ projectId, onBack }: { projectId: number; onBack
             {data.children.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 20 }}>
                 {data.children.map(child => (
-                  <div key={child.id} style={{
+                  <div key={child.id} onClick={() => onSelect(child.id)} style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '5px 12px', borderRadius: 20, background: c.surface, border: `1px solid ${c.border}`,
+                    cursor: 'pointer',
                   }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(child.status) }} />
                     <span style={{ color: c.text, fontSize: 12 }}>{child.name}</span>
