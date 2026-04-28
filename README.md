@@ -9,11 +9,11 @@ Persistent memory and context system for Bharat's AI agents (Claude Code, Hermes
 
 ## The Goal
 
-Most people building with AI are working at the **robotic arm level** — a single agent, excellent at tasks, maybe with local memory. That's genuinely powerful. But one arm doesn't know what the other arms in the factory are doing.
+Most people building with AI are working at the **robotic arm level** — one agent, excellent at tasks, maybe with local memory. But one arm doesn't know what the other arms are doing.
 
-When you're dribbling a basketball, one arm doing an excellent job alone isn't enough. The arms need to talk to each other, to the legs, to the eyes. You don't want the intelligence sitting inside the arm — you want it at the brain level, coordinating everything.
+Brain sits above the arms. It's a cloud-hosted memory layer that all your AI agents — across machines, across sessions — read from and write to. When Claude on your Mac finishes a session, Claude on Ubuntu picks up exactly where it left off. That's what local memory can't do.
 
-That's what this is. Memory at the brain level, not the agent level.
+Memory at the brain level, not the arm level.
 
 Brain solves three problems:
 
