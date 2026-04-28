@@ -9,7 +9,11 @@ Persistent memory and context system for Bharat's AI agents (Claude Code, Hermes
 
 ## The Goal
 
-AI development moves fast. Context, decisions, and rationale get lost between sessions. Without a system, you end up rebuilding context from scratch every session, forgetting why decisions were made, and drifting into rabbit holes without noticing.
+Most people building with AI are working at the **robotic arm level** — a single agent, excellent at tasks, maybe with local memory. That's genuinely powerful. But one arm doesn't know what the other arms in the factory are doing.
+
+When you're dribbling a basketball, one arm doing an excellent job alone isn't enough. The arms need to talk to each other, to the legs, to the eyes. You don't want the intelligence sitting inside the arm — you want it at the brain level, coordinating everything.
+
+That's what this is. Memory at the brain level, not the agent level.
 
 Brain solves three problems:
 
