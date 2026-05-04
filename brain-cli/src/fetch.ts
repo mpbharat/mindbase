@@ -1,14 +1,17 @@
 const BASE_URL = process.env.BRAIN_URL ?? 'https://brain-worker.YOUR_SUBDOMAIN.workers.dev';
 const API_KEY = process.env.BRAIN_API_KEY ?? '';
 
-export async function runFetch(projectName: string): Promise<void> {
+export async function runFetch(projectName: string, options: { q?: string }): Promise<void> {
   if (!API_KEY) {
     process.stderr.write('BRAIN_API_KEY not set — skipping brain fetch\n');
     return;
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/context/project?name=${encodeURIComponent(projectName)}`, {
+    const params = new URLSearchParams({ name: projectName });
+    if (options.q) params.set('q', options.q);
+
+    const res = await fetch(`${BASE_URL}/context/project?${params}`, {
       headers: { 'Authorization': `Bearer ${API_KEY}` },
     });
 

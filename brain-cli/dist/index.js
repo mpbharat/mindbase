@@ -15,6 +15,7 @@ program
 program
     .command('fetch <project>')
     .description('Fetch full context for a specific project by name (on-demand, mid-session)')
+    .option('--q <query>', 'Semantic search query — returns most relevant memories instead of all')
     .action(runFetch);
 program
     .command('save')
