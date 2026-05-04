@@ -12,3 +12,6 @@ account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
 
 [vars]
 ENVIRONMENT = "production"
+
+[ai]
+binding = "BRAIN_AI"

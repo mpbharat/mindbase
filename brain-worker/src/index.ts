@@ -3,6 +3,17 @@ import { neon } from "@neondatabase/serverless";
 export interface Env {
   DATABASE_URL: string;
   BRAIN_API_KEY: string;
+  BRAIN_AI: Ai;
+}
+
+// Generate embedding via Workers AI (768 dimensions, free)
+async function embed(env: Env, text: string): Promise<number[] | null> {
+  try {
+    const result = await env.BRAIN_AI.run("@cf/baai/bge-base-en-v1.5", { text: [text] }) as { data: number[][] };
+    return result.data[0];
+  } catch {
+    return null;
+  }
 }
 
 // Auth middleware
@@ -44,6 +55,46 @@ export default {
     // Health check (no auth required)
     if (path === "/" || path === "/health") {
       return json({ status: "ok", service: "brain-worker" });
+    }
+
+    // ─── POST /admin/migrate-vectors ──────────────────────────────────────────
+    // One-time: enable pgvector + alter embedding column to vector(768)
+    if (path === "/admin/migrate-vectors" && method === "POST") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      const sql = neon(env.DATABASE_URL);
+      await sql`CREATE EXTENSION IF NOT EXISTS vector`;
+      await sql`ALTER TABLE memories ALTER COLUMN embedding TYPE vector(768) USING embedding::vector(768)`;
+      return json({ ok: true, message: "pgvector enabled, embedding column converted to vector(768)" });
+    }
+
+    // ─── POST /admin/backfill-embeddings ──────────────────────────────────────
+    // Generates embeddings for all memories that have null embedding
+    if (path === "/admin/backfill-embeddings" && method === "POST") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      try {
+        const sql = neon(env.DATABASE_URL);
+        const rows = await sql`SELECT id, content FROM memories WHERE embedding IS NULL LIMIT 50`;
+        let count = 0;
+        let errors: string[] = [];
+        for (const row of rows as Array<{ id: number; content: string }>) {
+          try {
+            const vec = await embed(env, row.content);
+            if (vec) {
+              const vecStr = `[${vec.join(',')}]`;
+              await sql`UPDATE memories SET embedding = ${vecStr}::vector WHERE id = ${row.id}`;
+              count++;
+            } else {
+              errors.push(`id=${row.id}: embed returned null`);
+            }
+          } catch (e) {
+            errors.push(`id=${row.id}: ${(e as Error).message}`);
+          }
+        }
+        const remaining = await sql`SELECT COUNT(*)::int AS n FROM memories WHERE embedding IS NULL`;
+        return json({ ok: true, backfilled: count, remaining: (remaining[0] as { n: number }).n, errors });
+      } catch (e) {
+        return json({ ok: false, error: (e as Error).message, stack: (e as Error).stack }, 500);
+      }
     }
 
     // All other routes require auth
@@ -166,9 +217,14 @@ ${(recentSessions as Record<string, unknown>[]).map(s => `  <session agent="${s.
         const project = projectRows[0] as Record<string, unknown>;
         const pid = project.id as number;
 
+        const queryText = url.searchParams.get("q");
+        const queryVec = queryText ? await embed(env, queryText) : null;
+
         const [children, memories, sessions, tasks, backlog] = await Promise.all([
           sql`SELECT id, name, description, status FROM projects WHERE parent_id = ${pid} ORDER BY name`,
-          sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} ORDER BY importance DESC, created_at DESC LIMIT 30`,
+          queryVec
+            ? sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} AND embedding IS NOT NULL ORDER BY embedding <=> ${JSON.stringify(queryVec)}::vector LIMIT 12`
+            : sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} ORDER BY importance DESC, created_at DESC LIMIT 20`,
           sql`SELECT agent_name, summary, created_at FROM sessions WHERE project_id = ${pid} ORDER BY created_at DESC LIMIT 10`,
           sql`SELECT title, status, priority FROM agent_tasks WHERE project_id = ${pid} ORDER BY priority DESC, created_at DESC`,
           sql`SELECT title, priority, tags FROM backlog_items WHERE status = 'active' ORDER BY priority DESC LIMIT 50`,
@@ -230,11 +286,13 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
           project_id?: number;
           embedding?: number[];
         };
-        const { content, category = "general", importance = 5, agent_name = "unknown", project_id, embedding } = body;
+        const { content, category = "general", importance = 5, agent_name = "unknown", project_id } = body;
+
+        const vec = await embed(env, content);
 
         const result = await sql`
           INSERT INTO memories (content, category, importance, agent_name, project_id, embedding)
-          VALUES (${content}, ${category}, ${importance}, ${agent_name}, ${project_id || null}, ${embedding ? JSON.stringify(embedding) : null})
+          VALUES (${content}, ${category}, ${importance}, ${agent_name}, ${project_id || null}, ${vec ? JSON.stringify(vec) : null})
           RETURNING id, created_at
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
