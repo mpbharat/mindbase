@@ -4,6 +4,7 @@ export interface Env {
   DATABASE_URL: string;
   BRAIN_API_KEY: string;
   BRAIN_AI: Ai;
+  BRAIN_DRIVE: R2Bucket;
 }
 
 // Generate embedding via Workers AI (768 dimensions, free)
@@ -57,6 +58,28 @@ export default {
       return json({ status: "ok", service: "brain-worker" });
     }
 
+    // ─── POST /admin/migrate-artifacts ────────────────────────────────────────
+    // One-time: create artifacts table
+    if (path === "/admin/migrate-artifacts" && method === "POST") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      const sql = neon(env.DATABASE_URL);
+      await sql`
+        CREATE TABLE IF NOT EXISTS artifacts (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          r2_key TEXT NOT NULL UNIQUE,
+          content_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+          size_bytes BIGINT,
+          project_id INTEGER REFERENCES projects(id),
+          agent_name TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `;
+      return json({ ok: true, message: "artifacts table created" });
+    }
+
     // ─── POST /admin/migrate-vectors ──────────────────────────────────────────
     // One-time: enable pgvector + alter embedding column to vector(768)
     if (path === "/admin/migrate-vectors" && method === "POST") {
@@ -95,6 +118,33 @@ export default {
       } catch (e) {
         return json({ ok: false, error: (e as Error).message, stack: (e as Error).stack }, 500);
       }
+    }
+
+    // ─── GET /drive/:r2_key ───────────────────────────────────────────────────
+    // Proxy R2 file to browser — no auth required (key is unguessable)
+    if (path.startsWith("/drive/") && method === "GET") {
+      const r2Key = path.slice(7);
+      if (!r2Key) return error("Missing key", 400);
+      const obj = await env.BRAIN_DRIVE.get(r2Key);
+      if (!obj) return error("Not found", 404);
+      const headers = new Headers();
+      headers.set("Content-Type", obj.httpMetadata?.contentType || "application/octet-stream");
+      headers.set("Access-Control-Allow-Origin", "*");
+      if (obj.size) headers.set("Content-Length", String(obj.size));
+      return new Response(obj.body, { headers });
+    }
+
+    // ─── PUT /drive/:r2_key ───────────────────────────────────────────────────
+    // Direct upload — agent streams file body, auth required
+    if (path.startsWith("/drive/") && method === "PUT") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      const r2Key = path.slice(7);
+      if (!r2Key) return error("Missing key", 400);
+      const contentType = request.headers.get("Content-Type") || "application/octet-stream";
+      await env.BRAIN_DRIVE.put(r2Key, request.body, {
+        httpMetadata: { contentType },
+      });
+      return json({ ok: true, r2_key: r2Key });
     }
 
     // All other routes require auth
@@ -517,13 +567,14 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       // ─── GET /project/:id ──────────────────────────────────────────────────
       if (path.match(/^\/project\/\d+$/) && method === "GET") {
         const id = parseInt(path.split("/")[2]);
-        const [projectRows, children, memories, sessions, tasks, allBacklog] = await Promise.all([
+        const [projectRows, children, memories, sessions, tasks, allBacklog, artifactRows] = await Promise.all([
           sql`SELECT * FROM projects WHERE id = ${id}`,
           sql`SELECT * FROM projects WHERE parent_id = ${id} ORDER BY name`,
           sql`SELECT * FROM memories WHERE project_id = ${id} ORDER BY importance DESC, created_at DESC`,
           sql`SELECT id, agent_name, summary, created_at FROM sessions WHERE project_id = ${id} ORDER BY created_at DESC LIMIT 20`,
           sql`SELECT * FROM agent_tasks WHERE project_id = ${id} ORDER BY priority DESC, created_at DESC`,
           sql`SELECT * FROM backlog_items ORDER BY priority DESC, created_at DESC`,
+          sql`SELECT id, name, description, r2_key, content_type, size_bytes, agent_name, created_at FROM artifacts WHERE project_id = ${id} ORDER BY created_at DESC`,
         ]);
         if (projectRows.length === 0) return error("Not found", 404);
 
@@ -577,7 +628,11 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
           ]);
         }
 
-        return json({ project, children, memories, sessions, tasks, backlog, agents, agentStates, cronJobs });
+        const artifacts = (artifactRows as Array<Record<string, unknown>>).map(a => ({
+          ...a,
+          url: `https://brain-worker.YOUR_SUBDOMAIN.workers.dev/drive/${a.r2_key}`,
+        }));
+        return json({ project, children, memories, sessions, tasks, backlog, agents, agentStates, cronJobs, artifacts });
       }
 
       // ─── PUT /project/:id ──────────────────────────────────────────────────
@@ -653,6 +708,86 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
         const status = url.searchParams.get("status") || "active";
         const items = await sql`SELECT * FROM backlog_items WHERE status = ${status} ORDER BY priority DESC, created_at DESC`;
         return json({ items });
+      }
+
+      // ─── POST /artifact/upload-url ─────────────────────────────────────────
+      // Returns a pre-signed URL for direct agent upload to R2
+      if (path === "/artifact/upload-url" && method === "POST") {
+        const body = (await request.json()) as { name: string; content_type?: string; project_id?: number; agent_name?: string; description?: string };
+        const { name, content_type = "application/octet-stream", project_id, agent_name, description } = body;
+        const r2Key = `${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const uploadUrl = await env.BRAIN_DRIVE.createMultipartUpload(r2Key);
+        // Store pending artifact metadata
+        const result = await sql`
+          INSERT INTO artifacts (name, description, r2_key, content_type, project_id, agent_name)
+          VALUES (${name}, ${description || null}, ${r2Key}, ${content_type}, ${project_id || null}, ${agent_name || null})
+          RETURNING id
+        `;
+        const artifactId = (result[0] as Record<string, unknown>).id;
+        return json({ ok: true, artifact_id: artifactId, r2_key: r2Key, upload: uploadUrl });
+      }
+
+      // ─── PUT /artifact/:id/complete ────────────────────────────────────────
+      // Called after upload finishes — updates size
+      if (path.match(/^\/artifact\/\d+\/complete$/) && method === "PUT") {
+        const id = parseInt(path.split("/")[2]);
+        const body = (await request.json()) as { size_bytes?: number };
+        await sql`UPDATE artifacts SET size_bytes = ${body.size_bytes || null}, updated_at = NOW() WHERE id = ${id}`;
+        return json({ ok: true });
+      }
+
+      // ─── POST /artifact ────────────────────────────────────────────────────
+      // Save artifact metadata when agent has already uploaded file to R2
+      if (path === "/artifact" && method === "POST") {
+        const body = (await request.json()) as { name: string; r2_key: string; content_type?: string; size_bytes?: number; project_id?: number; agent_name?: string; description?: string };
+        const { name, r2_key, content_type = "application/octet-stream", size_bytes, project_id, agent_name, description } = body;
+        const result = await sql`
+          INSERT INTO artifacts (name, description, r2_key, content_type, size_bytes, project_id, agent_name)
+          VALUES (${name}, ${description || null}, ${r2_key}, ${content_type}, ${size_bytes || null}, ${project_id || null}, ${agent_name || null})
+          RETURNING id, created_at
+        `;
+        return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
+      }
+
+      // ─── GET /artifacts ────────────────────────────────────────────────────
+      if (path === "/artifacts" && method === "GET") {
+        const project_id = url.searchParams.get("project_id");
+        const limit = parseInt(url.searchParams.get("limit") || "50");
+        const rows = project_id
+          ? await sql`SELECT id, name, description, r2_key, content_type, size_bytes, project_id, agent_name, created_at FROM artifacts WHERE project_id = ${parseInt(project_id)} ORDER BY created_at DESC`
+          : await sql`SELECT id, name, description, r2_key, content_type, size_bytes, project_id, agent_name, created_at FROM artifacts ORDER BY created_at DESC LIMIT ${limit}`;
+        // Attach public URL to each artifact
+        const artifacts = (rows as Array<Record<string, unknown>>).map(a => ({
+          ...a,
+          url: `https://brain-worker.YOUR_SUBDOMAIN.workers.dev/drive/${a.r2_key}`,
+        }));
+        return json({ artifacts });
+      }
+
+      // ─── PATCH /artifact/:id ──────────────────────────────────────────────
+      if (path.match(/^\/artifact\/\d+$/) && method === "PATCH") {
+        const id = parseInt(path.split("/")[2]);
+        const body = (await request.json()) as { project_id?: number | null; description?: string; name?: string };
+        await sql`
+          UPDATE artifacts SET
+            project_id = CASE WHEN ${body.project_id !== undefined} THEN ${body.project_id ?? null} ELSE project_id END,
+            description = COALESCE(${body.description || null}, description),
+            name = COALESCE(${body.name || null}, name),
+            updated_at = NOW()
+          WHERE id = ${id}
+        `;
+        return json({ ok: true });
+      }
+
+      // ─── DELETE /artifact/:id ──────────────────────────────────────────────
+      if (path.match(/^\/artifact\/\d+$/) && method === "DELETE") {
+        const id = parseInt(path.split("/")[2]);
+        const rows = await sql`DELETE FROM artifacts WHERE id = ${id} RETURNING r2_key`;
+        if (rows.length > 0) {
+          const r2Key = (rows[0] as Record<string, unknown>).r2_key as string;
+          await env.BRAIN_DRIVE.delete(r2Key);
+        }
+        return json({ ok: true });
       }
 
       // ─── PATCH /backlog/:id ────────────────────────────────────────────────

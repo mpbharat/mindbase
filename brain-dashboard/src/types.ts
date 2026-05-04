@@ -112,6 +112,19 @@ export interface ProjectBacklog {
   unlinked_issues: BacklogIssue[];
 }
 
+export interface Artifact {
+  id: number;
+  name: string;
+  description: string | null;
+  r2_key: string;
+  content_type: string;
+  size_bytes: number | null;
+  project_id: number | null;
+  agent_name: string | null;
+  created_at: string;
+  url: string;
+}
+
 export interface ProjectDetail {
   project: Project;
   children: Project[];
@@ -122,6 +135,7 @@ export interface ProjectDetail {
   agents: Agent[];
   agentStates: AgentState[];
   cronJobs: CronJob[];
+  artifacts: Artifact[];
 }
 
 export interface DashboardData {

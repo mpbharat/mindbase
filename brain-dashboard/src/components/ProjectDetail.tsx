@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchProjectDetail, createBacklogItem, updateBacklogItem } from '../api';
-import type { ProjectDetail as PD, BacklogEpic, BacklogIssue } from '../types';
+import type { ProjectDetail as PD, BacklogEpic, BacklogIssue, Artifact } from '../types';
 import { s, statusColor, relativeTime } from '../styles';
 
 const c = s.colors;
@@ -340,6 +340,46 @@ function Empty({ msg }: { msg: string }) {
   return <p style={{ color: c.muted, fontSize: 12, margin: 0, fontStyle: 'italic' }}>{msg}</p>;
 }
 
+function formatBytes(n: number | null) {
+  if (!n) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function ArtifactsWidget({ artifacts }: { artifacts: Artifact[] }) {
+  if (artifacts.length === 0) return null;
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Widget title="Drive — Artifacts" count={artifacts.length}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {artifacts.map(a => (
+            <div key={a.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 7,
+              background: 'rgba(255,255,255,0.03)', border: `1px solid ${c.border}`,
+            }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>
+                {a.content_type.startsWith('image/') ? '🖼' : a.content_type === 'application/pdf' ? '📄' : '📎'}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <a href={a.url} target="_blank" rel="noreferrer" style={{ color: '#4a9eff', fontSize: 12, textDecoration: 'none' }}>
+                  {a.name}
+                </a>
+                {a.description && (
+                  <div style={{ fontSize: 11, color: c.muted, marginTop: 1 }}>{a.description}</div>
+                )}
+              </div>
+              <span style={{ fontSize: 11, color: c.muted, flexShrink: 0 }}>{formatBytes(a.size_bytes)}</span>
+              <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>{relativeTime(a.created_at)}</span>
+            </div>
+          ))}
+        </div>
+      </Widget>
+    </div>
+  );
+}
+
 export function ProjectDetail({ projectId, onBack, onSelect }: { projectId: number; onBack: () => void; onSelect: (id: number) => void }) {
   const [data, setData] = useState<PD | null>(null);
   const [loading, setLoading] = useState(true);
@@ -404,6 +444,11 @@ export function ProjectDetail({ projectId, onBack, onSelect }: { projectId: numb
               </div>
             )}
           </div>
+
+          {/* Artifacts */}
+          {data.artifacts && data.artifacts.length > 0 && (
+            <ArtifactsWidget artifacts={data.artifacts} />
+          )}
 
           {/* 2×2 Widget Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

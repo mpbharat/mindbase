@@ -15,3 +15,7 @@ ENVIRONMENT = "production"
 
 [ai]
 binding = "BRAIN_AI"
+
+[[r2_buckets]]
+binding = "BRAIN_DRIVE"
+bucket_name = "brain-drive"
