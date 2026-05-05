@@ -121,6 +121,7 @@ export interface Artifact {
   size_bytes: number | null;
   project_id: number | null;
   agent_name: string | null;
+  is_generated: boolean | null;
   created_at: string;
   url: string;
 }

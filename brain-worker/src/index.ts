@@ -5,6 +5,8 @@ export interface Env {
   BRAIN_API_KEY: string;
   BRAIN_AI: Ai;
   BRAIN_DRIVE: R2Bucket;
+  ANTHROPIC_API_KEY: string;
+  BRAIN_WORKER_URL: string; // e.g. https://brain-worker.<your-subdomain>.workers.dev
 }
 
 // Generate embedding via Workers AI (768 dimensions, free)
@@ -12,6 +14,46 @@ async function embed(env: Env, text: string): Promise<number[] | null> {
   try {
     const result = await env.BRAIN_AI.run("@cf/baai/bge-base-en-v1.5", { text: [text] }) as { data: number[][] };
     return result.data[0];
+  } catch {
+    return null;
+  }
+}
+
+// Classify an artifact as user-uploaded (false) or AI-generated (true) using Claude Haiku
+async function classifyArtifact(env: Env, name: string, description: string | null, content_type: string, agent_name: string | null): Promise<boolean | null> {
+  if (!env.ANTHROPIC_API_KEY) return null;
+  try {
+    const prompt = `Classify this file as either a user-uploaded source document or an AI-generated artifact.
+
+File: ${name}
+Type: ${content_type}
+Description: ${description || 'none'}
+Uploaded by: ${agent_name ? `agent (${agent_name})` : 'direct upload'}
+
+Source documents (is_generated: false): PDFs, spreadsheets, original business files — proposals, agreements, org charts, reports, invoices, data exports, raw data files.
+AI-generated (is_generated: true): Plans, specs, READMEs, SKILL.md, BACKLOG.md, CLAUDE.md, context docs, llms.txt, architectural docs, task specs — files created by AI to describe or plan work.
+
+Respond with ONLY valid JSON: {"is_generated": true} or {"is_generated": false}`;
+
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 64,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!resp.ok) return null;
+    const result = await resp.json() as { content: Array<{ text: string }> };
+    let text = result.content[0]?.text?.trim() ?? "";
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    const parsed = JSON.parse(text) as { is_generated: boolean };
+    return parsed.is_generated;
   } catch {
     return null;
   }
@@ -78,6 +120,89 @@ export default {
         )
       `;
       return json({ ok: true, message: "artifacts table created" });
+    }
+
+    // ─── POST /admin/migrate-artifact-classification ──────────────────────────
+    // One-time: add is_generated column to artifacts table
+    if (path === "/admin/migrate-artifact-classification" && method === "POST") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      const sql = neon(env.DATABASE_URL);
+      await sql`ALTER TABLE artifacts ADD COLUMN IF NOT EXISTS is_generated BOOLEAN`;
+      return json({ ok: true, message: "is_generated column added to artifacts" });
+    }
+
+    // ─── POST /artifacts/classify ─────────────────────────────────────────────
+    // Uses Claude Haiku to classify all unclassified artifacts as Drive (user source)
+    // or Artifacts (AI-generated). Updates is_generated column.
+    if (path === "/artifacts/classify" && method === "POST") {
+      if (!authenticate(request, env)) return error("Unauthorized", 401);
+      const sql = neon(env.DATABASE_URL);
+
+      // Process in batches of 20 (each artifact = 2 subrequests: Anthropic + DB)
+      const batchSize = 20;
+      const rows = await sql`
+        SELECT id, name, description, content_type, agent_name
+        FROM artifacts
+        WHERE is_generated IS NULL
+        ORDER BY id ASC
+        LIMIT ${batchSize}
+      `;
+
+      if (rows.length === 0) return json({ ok: true, classified: 0, message: "All artifacts already classified" });
+
+      const classified: Array<{ id: number; is_generated: boolean; name: string }> = [];
+      const errors: string[] = [];
+
+      for (const row of rows as Array<{ id: number; name: string; description: string | null; content_type: string; agent_name: string | null }>) {
+        try {
+          const prompt = `You classify files in a personal productivity system as either user-uploaded source documents or AI-generated artifacts.
+
+File details:
+- Name: ${row.name}
+- Content type: ${row.content_type}
+- Description: ${row.description || 'none'}
+- Uploaded by: ${row.agent_name ? `agent (${row.agent_name})` : 'direct upload'}
+
+Rules:
+- Source documents (is_generated: false): PDFs, spreadsheets, original files the user created or received — proposals, agreements, org charts, reports, invoices, data exports
+- AI-generated (is_generated: true): Plans, specs, README files, task specs, context docs, llms.txt, SKILL.md, files created by AI agents to describe or plan work
+
+Respond with ONLY a JSON object: {"is_generated": true} or {"is_generated": false}`;
+
+          const resp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": env.ANTHROPIC_API_KEY,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-haiku-4-5-20251001",
+              max_tokens: 64,
+              messages: [{ role: "user", content: prompt }],
+            }),
+          });
+
+          if (!resp.ok) {
+            errors.push(`id=${row.id}: Anthropic API error ${resp.status}`);
+            continue;
+          }
+
+          const result = await resp.json() as { content: Array<{ text: string }> };
+          let text = result.content[0]?.text?.trim() ?? "";
+          // Strip markdown code fences if present
+          text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+          const parsed = JSON.parse(text) as { is_generated: boolean };
+
+          await sql`UPDATE artifacts SET is_generated = ${parsed.is_generated} WHERE id = ${row.id}`;
+          classified.push({ id: row.id, is_generated: parsed.is_generated, name: row.name });
+        } catch (e) {
+          errors.push(`id=${row.id}: ${(e as Error).message}`);
+        }
+      }
+
+      const remaining = await sql`SELECT COUNT(*)::int AS n FROM artifacts WHERE is_generated IS NULL`;
+      return json({ ok: true, classified: classified.length, remaining: (remaining[0] as { n: number }).n, results: classified, errors });
     }
 
     // ─── POST /admin/migrate-vectors ──────────────────────────────────────────
@@ -574,7 +699,7 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
           sql`SELECT id, agent_name, summary, created_at FROM sessions WHERE project_id = ${id} ORDER BY created_at DESC LIMIT 20`,
           sql`SELECT * FROM agent_tasks WHERE project_id = ${id} ORDER BY priority DESC, created_at DESC`,
           sql`SELECT * FROM backlog_items ORDER BY priority DESC, created_at DESC`,
-          sql`SELECT id, name, description, r2_key, content_type, size_bytes, agent_name, created_at FROM artifacts WHERE project_id = ${id} ORDER BY created_at DESC`,
+          sql`SELECT id, name, description, r2_key, content_type, size_bytes, agent_name, is_generated, created_at FROM artifacts WHERE project_id = ${id} ORDER BY created_at DESC`,
         ]);
         if (projectRows.length === 0) return error("Not found", 404);
 
@@ -630,7 +755,7 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
 
         const artifacts = (artifactRows as Array<Record<string, unknown>>).map(a => ({
           ...a,
-          url: `https://brain-worker.YOUR_SUBDOMAIN.workers.dev/drive/${a.r2_key}`,
+          url: `${env.BRAIN_WORKER_URL}/drive/${a.r2_key}`,
         }));
         return json({ project, children, memories, sessions, tasks, backlog, agents, agentStates, cronJobs, artifacts });
       }
@@ -717,10 +842,11 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
         const { name, content_type = "application/octet-stream", project_id, agent_name, description } = body;
         const r2Key = `${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
         const uploadUrl = await env.BRAIN_DRIVE.createMultipartUpload(r2Key);
-        // Store pending artifact metadata
+        // Classify before insert — fire-and-forget style (non-blocking on failure)
+        const isGenerated = await classifyArtifact(env, name, description ?? null, content_type, agent_name ?? null);
         const result = await sql`
-          INSERT INTO artifacts (name, description, r2_key, content_type, project_id, agent_name)
-          VALUES (${name}, ${description || null}, ${r2Key}, ${content_type}, ${project_id || null}, ${agent_name || null})
+          INSERT INTO artifacts (name, description, r2_key, content_type, project_id, agent_name, is_generated)
+          VALUES (${name}, ${description || null}, ${r2Key}, ${content_type}, ${project_id || null}, ${agent_name || null}, ${isGenerated})
           RETURNING id
         `;
         const artifactId = (result[0] as Record<string, unknown>).id;
@@ -741,9 +867,10 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       if (path === "/artifact" && method === "POST") {
         const body = (await request.json()) as { name: string; r2_key: string; content_type?: string; size_bytes?: number; project_id?: number; agent_name?: string; description?: string };
         const { name, r2_key, content_type = "application/octet-stream", size_bytes, project_id, agent_name, description } = body;
+        const isGenerated = await classifyArtifact(env, name, description ?? null, content_type, agent_name ?? null);
         const result = await sql`
-          INSERT INTO artifacts (name, description, r2_key, content_type, size_bytes, project_id, agent_name)
-          VALUES (${name}, ${description || null}, ${r2_key}, ${content_type}, ${size_bytes || null}, ${project_id || null}, ${agent_name || null})
+          INSERT INTO artifacts (name, description, r2_key, content_type, size_bytes, project_id, agent_name, is_generated)
+          VALUES (${name}, ${description || null}, ${r2_key}, ${content_type}, ${size_bytes || null}, ${project_id || null}, ${agent_name || null}, ${isGenerated})
           RETURNING id, created_at
         `;
         return json({ ok: true, id: (result[0] as Record<string, unknown>).id });
@@ -759,7 +886,7 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
         // Attach public URL to each artifact
         const artifacts = (rows as Array<Record<string, unknown>>).map(a => ({
           ...a,
-          url: `https://brain-worker.YOUR_SUBDOMAIN.workers.dev/drive/${a.r2_key}`,
+          url: `${env.BRAIN_WORKER_URL}/drive/${a.r2_key}`,
         }));
         return json({ artifacts });
       }

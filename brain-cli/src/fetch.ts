@@ -1,4 +1,4 @@
-const BASE_URL = process.env.BRAIN_URL ?? 'https://brain-worker.YOUR_SUBDOMAIN.workers.dev';
+const BASE_URL = process.env.BRAIN_URL ?? '';
 const API_KEY = process.env.BRAIN_API_KEY ?? '';
 
 export async function runFetch(projectName: string, options: { q?: string }): Promise<void> {

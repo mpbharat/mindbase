@@ -1,626 +1,616 @@
 import { useEffect, useState } from 'react';
 import { fetchProjectDetail, createBacklogItem, updateBacklogItem } from '../api';
 import type { ProjectDetail as PD, BacklogEpic, BacklogIssue, Artifact } from '../types';
-import { s, statusColor, relativeTime } from '../styles';
 
-const c = s.colors;
+function relativeTime(ts: string) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 2) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function formatBytes(n: number | null) {
+  if (!n) return '';
+  if (n < 1024) return `${n}B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)}KB`;
+  return `${(n / 1024 / 1024).toFixed(1)}MB`;
+}
 
 const categoryColor: Record<string, string> = {
-  person: '#a78bfa',
-  decision: '#60a5fa',
-  project: '#34d399',
-  fact: '#fbbf24',
-  general: '#9ca3af',
+  decision: '#60a5fa', fact: '#f59e0b', project: '#34d399',
+  person: '#a78bfa', general: '#71717a',
 };
 
-const taskStatusColor: Record<string, string> = {
-  completed: '#34d399',
-  done: '#34d399',
-  'in-progress': '#60a5fa',
-  active: '#60a5fa',
-  pending: '#fbbf24',
-  blocked: '#f87171',
-};
-
-function Widget({ title, count, children, headerExtra }: { title: string; count?: number; children: React.ReactNode; headerExtra?: React.ReactNode }) {
-  return (
-    <div style={{
-      background: c.surface,
-      border: `1px solid ${c.border}`,
-      borderRadius: 10,
-      padding: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: 200,
-      maxHeight: 480,
-      overflow: 'hidden',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-        <span style={{ fontSize: 11, color: c.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-          {title}
-        </span>
-        {count !== undefined && (
-          <span style={{ fontSize: 10, color: c.muted, background: c.border, borderRadius: 10, padding: '1px 6px' }}>
-            {count}
-          </span>
-        )}
-        {headerExtra && <div style={{ marginLeft: 'auto' }}>{headerExtra}</div>}
-      </div>
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {children}
-      </div>
-    </div>
-  );
-}
+// ─── Backlog Tab ──────────────────────────────────────────────────────────────
 
 type InlineForm = { type: 'epic' } | { type: 'issue'; epicId: number } | { type: 'edit-issue'; issue: BacklogIssue; epicId: number | null };
 
-function priorityBadge(p: number) {
-  const col = p >= 9 ? '#f87171' : p >= 7 ? '#fbbf24' : p >= 5 ? '#60a5fa' : '#6b7280';
-  return <span style={{ fontSize: 10, fontWeight: 700, color: col, flexShrink: 0 }}>P{p}</span>;
+function pColor(p: number) {
+  if (p >= 9) return '#f59e0b';
+  if (p >= 7) return '#71717a';
+  return '#3f3f46';
 }
 
-function StatusToggle({ status, onToggle }: { status: string; onToggle: () => void }) {
-  const isDone = status === 'done';
-  const col = isDone ? '#34d399' : '#60a5fa';
+function StatusChip({ status, onToggle }: { status: string; onToggle: () => void }) {
+  const done = status === 'done';
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      title="Toggle status"
-      style={{
-        fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0, cursor: 'pointer',
-        background: `${col}22`, color: col, border: 'none', fontWeight: 600,
-      }}
+      onClick={e => { e.stopPropagation(); onToggle(); }}
+      className={done ? 'pill pill-green' : 'pill'}
+      style={{ cursor: 'pointer', border: 'none', flexShrink: 0 }}
     >
-      {status}
+      {done ? 'done' : 'active'}
     </button>
   );
 }
 
-function BacklogWidget({ projectId, backlog, reload }: {
-  projectId: number;
-  backlog: PD['backlog'];
-  reload: () => void;
-}) {
+function BacklogTab({ projectId, backlog, reload }: { projectId: number; backlog: PD['backlog']; reload: () => void }) {
   const [form, setForm] = useState<InlineForm | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formPriority, setFormPriority] = useState(7);
-  const [expandedIssues, setExpandedIssues] = useState<Set<number>>(new Set());
   const [formEpicId, setFormEpicId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
-  const totalCount = backlog.epics.length + backlog.unlinked_issues.length;
+  const total = backlog.epics.length + backlog.unlinked_issues.length;
 
   function openForm(f: InlineForm) {
     setForm(f);
-    if (f.type === 'edit-issue') {
-      setFormTitle(f.issue.title);
-      setFormPriority(f.issue.priority);
-      setFormEpicId(f.epicId);
-    } else {
-      setFormTitle('');
-      setFormPriority(7);
-      setFormEpicId(f.type === 'issue' ? f.epicId : null);
-    }
+    if (f.type === 'edit-issue') { setFormTitle(f.issue.title); setFormPriority(f.issue.priority); setFormEpicId(f.epicId); }
+    else { setFormTitle(''); setFormPriority(7); setFormEpicId(f.type === 'issue' ? f.epicId : null); }
   }
 
-  function cancelForm() { setForm(null); }
-
   async function handleSave() {
-    if (!formTitle.trim()) return;
+    if (!formTitle.trim() || !form) return;
     setSaving(true);
     try {
-      if (!form) return;
-      if (form.type === 'epic') {
-        await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'epic', project_id: projectId });
-      } else if (form.type === 'issue') {
-        await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'issue', parent_id: form.epicId, project_id: projectId });
-      } else if (form.type === 'edit-issue') {
-        await updateBacklogItem(form.issue.id, { title: formTitle.trim(), priority: formPriority, parent_id: formEpicId });
-      }
-      setForm(null);
-      reload();
-    } catch (e) {
-      alert(String(e));
-    } finally {
-      setSaving(false);
-    }
+      if (form.type === 'epic') await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'epic', project_id: projectId });
+      else if (form.type === 'issue') await createBacklogItem({ title: formTitle.trim(), priority: formPriority, type: 'issue', parent_id: form.epicId, project_id: projectId });
+      else if (form.type === 'edit-issue') await updateBacklogItem(form.issue.id, { title: formTitle.trim(), priority: formPriority, parent_id: formEpicId });
+      setForm(null); reload();
+    } catch (e) { alert(String(e)); }
+    finally { setSaving(false); }
   }
 
   async function toggleStatus(id: number, current: string) {
-    const next = current === 'done' ? 'active' : 'done';
-    await updateBacklogItem(id, { status: next });
+    await updateBacklogItem(id, { status: current === 'done' ? 'active' : 'done' });
     reload();
   }
 
-  const inputStyle = {
-    background: '#111', border: `1px solid ${c.border}`, color: c.text,
-    borderRadius: 5, padding: '4px 8px', fontSize: 12, outline: 'none',
-  } as React.CSSProperties;
-
-  const btnStyle = (primary: boolean) => ({
-    background: primary ? '#4a9eff22' : 'transparent',
-    border: `1px solid ${primary ? '#4a9eff' : c.border}`,
-    color: primary ? '#4a9eff' : c.muted,
-    borderRadius: 5, padding: '3px 10px', fontSize: 11, cursor: 'pointer',
-  } as React.CSSProperties);
-
   function InlineFormRow({ label }: { label: string }) {
     return (
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 8px', background: '#ffffff08', borderRadius: 6, marginTop: 4, marginBottom: 4 }}>
-        <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>{label}</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', margin: '6px 0', background: 'var(--card)', border: '1px solid var(--border-hover)', borderRadius: 10 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, width: 32 }}>{label}</span>
         <input
           autoFocus
           value={formTitle}
           onChange={e => setFormTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') cancelForm(); }}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setForm(null); }}
           placeholder="Title…"
-          style={{ ...inputStyle, flex: 1 }}
+          className="minput"
+          style={{ flex: 1, border: 'none', background: 'transparent', padding: 0 }}
         />
         <input
           type="number"
           value={formPriority}
           onChange={e => setFormPriority(Number(e.target.value))}
-          min={1} max={10}
-          style={{ ...inputStyle, width: 44, textAlign: 'center' }}
+          min={1}
+          max={10}
+          className="minput"
+          style={{ width: 48, textAlign: 'center', padding: '4px 6px' }}
         />
         {form?.type === 'edit-issue' && (
           <select
             value={formEpicId ?? ''}
             onChange={e => setFormEpicId(e.target.value === '' ? null : Number(e.target.value))}
-            style={{ ...inputStyle, maxWidth: 120 }}
+            className="minput"
+            style={{ padding: '4px 8px', fontSize: 12 }}
           >
             <option value="">No epic</option>
-            {backlog.epics.map(ep => (
-              <option key={ep.id} value={ep.id}>{ep.title}</option>
-            ))}
+            {backlog.epics.map(ep => <option key={ep.id} value={ep.id}>{ep.title.slice(0, 24)}</option>)}
           </select>
         )}
-        <button onClick={handleSave} disabled={saving} style={btnStyle(true)}>Save</button>
-        <button onClick={cancelForm} style={btnStyle(false)}>Cancel</button>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ fontSize: 12, padding: '4px 12px', background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
+        >
+          Save
+        </button>
+        <button
+          onClick={() => setForm(null)}
+          style={{ fontSize: 12, padding: '4px 8px', background: 'transparent', color: 'var(--muted)', border: 'none', cursor: 'pointer' }}
+        >
+          ✕
+        </button>
       </div>
     );
   }
 
-  function EpicRow({ epic }: { epic: BacklogEpic }) {
-    const isDone = epic.status === 'done';
+  function ItemRow({ id, title, priority, status, isEpic, epicId, tasks, indent }: {
+    id: number; title: string; priority: number; status: string;
+    isEpic?: boolean; epicId?: number | null; tasks?: PD['tasks']; indent?: boolean;
+  }) {
+    const done = status === 'done';
+    const isOpen = expanded.has(id);
+    const hasTasks = (tasks?.length ?? 0) > 0;
+    const issueCount = isEpic ? (backlog.epics.find(e => e.id === id)?.issues.length ?? 0) : 0;
+
     return (
-      <div style={{ marginBottom: 8 }}>
-        {/* Epic header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '6px 8px', borderRadius: 6,
-          background: isDone ? 'rgba(52,211,153,0.04)' : 'rgba(255,255,255,0.04)',
-          border: `1px solid ${isDone ? '#34d39920' : c.border}`,
-          opacity: isDone ? 0.6 : 1,
-        }}>
-          <span style={{ fontSize: 12, flexShrink: 0 }}>📋</span>
-          {priorityBadge(epic.priority)}
-          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: c.text, textDecoration: isDone ? 'line-through' : 'none' }}>
-            {epic.title}
-          </span>
-          <StatusToggle status={epic.status} onToggle={() => toggleStatus(epic.id, epic.status)} />
-          <button
-            onClick={() => openForm({ type: 'issue', epicId: epic.id })}
-            style={{ ...btnStyle(false), fontSize: 10, padding: '2px 7px' }}
-          >
-            + Issue
-          </button>
-        </div>
-
-        {/* Issues under epic */}
-        {epic.issues.map(issue => (
-          <IssueRow key={issue.id} issue={issue} epicId={epic.id} indent={1} />
-        ))}
-
-        {/* Inline form for new issue under this epic */}
-        {form?.type === 'issue' && form.epicId === epic.id && (
-          <div style={{ marginLeft: 16 }}>
-            <InlineFormRow label="Issue" />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function IssueRow({ issue, epicId, indent }: { issue: BacklogIssue; epicId: number | null; indent: number }) {
-    const isDone = issue.status === 'done';
-    const isExpanded = expandedIssues.has(issue.id);
-    const hasTasks = issue.tasks.length > 0;
-    const toggleExpand = () => {
-      if (!hasTasks) return;
-      setExpandedIssues(prev => {
-        const next = new Set(prev);
-        next.has(issue.id) ? next.delete(issue.id) : next.add(issue.id);
-        return next;
-      });
-    };
-    return (
-      <div style={{ marginLeft: indent * 16, marginTop: 3 }}>
+      <div>
         <div
-          onClick={toggleExpand}
+          onClick={() => hasTasks && setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; })}
+          className={isEpic ? `epic-row${done ? ' done' : ''}` : 'mrow'}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '5px 8px', borderRadius: 5,
-            background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)',
-            border: `1px solid ${isDone ? '#34d39918' : '#ffffff0a'}`,
-            opacity: isDone ? 0.55 : 1,
+            marginLeft: indent ? 24 : 0,
             cursor: hasTasks ? 'pointer' : 'default',
-          }}>
-          <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>└─</span>
-          {priorityBadge(issue.priority)}
-          <span style={{ flex: 1, fontSize: 12, color: c.text, textDecoration: isDone ? 'line-through' : 'none' }}>
-            {issue.title}
-          </span>
-          {hasTasks && (
-            <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>
-              {isExpanded ? '▾' : '▸'} {issue.tasks.length} task{issue.tasks.length !== 1 ? 's' : ''}
-            </span>
-          )}
-          <StatusToggle status={issue.status} onToggle={() => toggleStatus(issue.id, issue.status)} />
-          <button
-            onClick={(e) => { e.stopPropagation(); openForm({ type: 'edit-issue', issue, epicId }); }}
-            style={{ ...btnStyle(false), fontSize: 10, padding: '2px 7px' }}
-          >
-            edit
-          </button>
+            opacity: !isEpic && done ? 0.4 : 1,
+          }}
+        >
+          {/* Priority dot */}
+          <div style={{ paddingTop: 3, flexShrink: 0 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: pColor(priority) }} />
+          </div>
+
+          {/* Title block */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: isEpic ? 14 : 13,
+              fontWeight: isEpic ? 500 : 400,
+              color: done ? 'var(--dim)' : isEpic ? 'var(--text)' : 'var(--muted)',
+              textDecoration: done ? 'line-through' : 'none',
+              lineHeight: 1.4,
+            }}>
+              {title}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: pColor(priority) }}>P{priority}</span>
+              {hasTasks && <span style={{ fontSize: 11, color: 'var(--dim)' }}>{tasks!.length} tasks</span>}
+              {isEpic && issueCount > 0 && <span style={{ fontSize: 11, color: 'var(--dim)' }}>{issueCount} issues</span>}
+            </div>
+          </div>
+
+          {/* Status + actions */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <StatusChip status={status} onToggle={() => toggleStatus(id, status)} />
+            {isEpic && (
+              <button
+                onClick={e => { e.stopPropagation(); openForm({ type: 'issue', epicId: id }); }}
+                style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border-hover)', color: 'var(--muted)', background: 'transparent', cursor: 'pointer' }}
+              >
+                + Issue
+              </button>
+            )}
+            {!isEpic && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  const issue = [...backlog.unlinked_issues, ...backlog.epics.flatMap(e => e.issues)].find(i => i.id === id);
+                  if (issue) openForm({ type: 'edit-issue', issue, epicId: epicId ?? null });
+                }}
+                style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', color: 'var(--dim)', background: 'transparent', cursor: 'pointer' }}
+              >
+                edit
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Agent tasks — only shown when expanded */}
-        {isExpanded && issue.tasks.map(task => {
-          const tCol = task.status === 'done' || task.status === 'completed' ? '#34d399'
-            : task.status === 'active' || task.status === 'in-progress' ? '#60a5fa'
-            : '#fbbf24';
+        {/* Subtasks */}
+        {isOpen && tasks?.map(t => {
+          const c = t.status === 'completed' || t.status === 'done' ? '#4ade80' : t.status === 'in-progress' ? '#60a5fa' : '#f59e0b';
           return (
-            <div key={task.id} style={{
-              marginLeft: 16, marginTop: 2,
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '3px 8px',
-              opacity: 0.5,
-            }}>
-              <span style={{ fontSize: 10, color: c.muted }}>└─</span>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: tCol, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: c.muted, flex: 1 }}>
-                {task.title.length > 55 ? task.title.slice(0, 55) + '…' : task.title}
-              </span>
-              <span style={{ fontSize: 9, color: tCol }}>{task.status}</span>
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px', opacity: 0.5, marginLeft: indent ? 24 : 0 }}>
+              <span style={{ width: 32, flexShrink: 0 }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: c, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+              <span style={{ fontSize: 12, fontFamily: 'monospace', color: c }}>{t.status}</span>
             </div>
           );
         })}
 
-        {/* Inline edit form */}
-        {form?.type === 'edit-issue' && form.issue.id === issue.id && (
-          <div style={{ marginLeft: 16 }}>
-            <InlineFormRow label="Edit" />
-          </div>
+        {/* Inline form for new issue under this epic */}
+        {isEpic && form?.type === 'issue' && form.epicId === id && (
+          <div style={{ marginLeft: 24, marginTop: 4 }}><InlineFormRow label="Issue" /></div>
+        )}
+        {!isEpic && form?.type === 'edit-issue' && form.issue.id === id && (
+          <InlineFormRow label="Edit" />
         )}
       </div>
     );
   }
 
-  const addEpicBtn = (
-    <button
-      onClick={() => openForm({ type: 'epic' })}
-      style={btnStyle(false)}
-    >
-      + Epic
-    </button>
-  );
-
   return (
-    <Widget title="Backlog" count={totalCount} headerExtra={addEpicBtn}>
-      {totalCount === 0 && !form ? (
-        <Empty msg="No backlog items for this project." />
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {/* Inline form for new epic */}
-          {form?.type === 'epic' && <InlineFormRow label="Epic" />}
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{total} items</span>
+        <button
+          onClick={() => openForm({ type: 'epic' })}
+          style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border-hover)', color: 'var(--muted)', background: 'transparent', cursor: 'pointer' }}
+        >
+          + Epic
+        </button>
+      </div>
 
-          {/* Epics */}
-          {backlog.epics.map(epic => <EpicRow key={epic.id} epic={epic} />)}
-
-          {/* Unlinked Issues */}
-          {backlog.unlinked_issues.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 10, color: c.muted, borderTop: `1px solid ${c.border}`, paddingTop: 8, marginBottom: 6 }}>
-                ── Unlinked Issues ──
-              </div>
-              {backlog.unlinked_issues.map(issue => (
-                <IssueRow key={issue.id} issue={issue} epicId={null} indent={0} />
-              ))}
-            </div>
-          )}
-        </div>
+      {total === 0 && !form && (
+        <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic', textAlign: 'center', padding: '32px 0' }}>No backlog items yet</p>
       )}
-    </Widget>
-  );
-}
+      {form?.type === 'epic' && <InlineFormRow label="Epic" />}
 
-function Empty({ msg }: { msg: string }) {
-  return <p style={{ color: c.muted, fontSize: 12, margin: 0, fontStyle: 'italic' }}>{msg}</p>;
-}
-
-function formatBytes(n: number | null) {
-  if (!n) return '—';
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function ArtifactsWidget({ artifacts }: { artifacts: Artifact[] }) {
-  if (artifacts.length === 0) return null;
-  return (
-    <div style={{ marginTop: 16 }}>
-      <Widget title="Drive — Artifacts" count={artifacts.length}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {artifacts.map(a => (
-            <div key={a.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 10px', borderRadius: 7,
-              background: 'rgba(255,255,255,0.03)', border: `1px solid ${c.border}`,
-            }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>
-                {a.content_type.startsWith('image/') ? '🖼' : a.content_type === 'application/pdf' ? '📄' : '📎'}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <a href={a.url} target="_blank" rel="noreferrer" style={{ color: '#4a9eff', fontSize: 12, textDecoration: 'none' }}>
-                  {a.name}
-                </a>
-                {a.description && (
-                  <div style={{ fontSize: 11, color: c.muted, marginTop: 1 }}>{a.description}</div>
-                )}
-              </div>
-              <span style={{ fontSize: 11, color: c.muted, flexShrink: 0 }}>{formatBytes(a.size_bytes)}</span>
-              <span style={{ fontSize: 10, color: c.muted, flexShrink: 0 }}>{relativeTime(a.created_at)}</span>
+      {/* Epics */}
+      {backlog.epics.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+          {backlog.epics.map(epic => (
+            <div key={epic.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <ItemRow id={epic.id} title={epic.title} priority={epic.priority} status={epic.status} isEpic />
+              {epic.issues.map(issue => (
+                <ItemRow key={issue.id} id={issue.id} title={issue.title} priority={issue.priority}
+                  status={issue.status} epicId={epic.id} tasks={issue.tasks} indent />
+              ))}
             </div>
           ))}
         </div>
-      </Widget>
+      )}
+
+      {/* Unlinked issues */}
+      {backlog.unlinked_issues.length > 0 && (
+        <div>
+          {backlog.epics.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--dim)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>Unlinked</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {backlog.unlinked_issues.map(issue => (
+              <ItemRow key={issue.id} id={issue.id} title={issue.title} priority={issue.priority}
+                status={issue.status} epicId={null} tasks={issue.tasks} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export function ProjectDetail({ projectId, onBack, onSelect }: { projectId: number; onBack: () => void; onSelect: (id: number) => void }) {
+// ─── Memories Tab ────────────────────────────────────────────────────────────
+
+function MemoriesTab({ data }: { data: PD }) {
+  const [search, setSearch] = useState('');
+  const q = search.toLowerCase();
+  const memories = data.memories.filter(m => !q || m.content.toLowerCase().includes(q));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Filter memories…"
+        className="minput"
+        style={{ width: '100%', boxSizing: 'border-box' }}
+      />
+      {memories.length === 0 && <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic', textAlign: 'center', padding: '32px 0' }}>No memories yet</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {memories.map(m => {
+          const col = categoryColor[m.category] ?? '#71717a';
+          return (
+            <div key={m.id} className="mcard" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, fontWeight: 500, background: `${col}18`, color: col }}>{m.category}</span>
+                <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>imp {m.importance} · {relativeTime(m.created_at)}</span>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5, margin: 0 }}>{m.content}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Drive Tab ────────────────────────────────────────────────────────────────
+
+function ArtifactRow({ a }: { a: Artifact }) {
+  return (
+    <div className="mcard" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+      <span style={{ fontSize: 16, flexShrink: 0 }}>
+        {a.content_type.startsWith('image/') ? '🖼' : a.content_type === 'application/pdf' ? '📄' : a.content_type === 'text/markdown' ? '📝' : '📎'}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: 'var(--blue)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</a>
+        {a.description && <p style={{ fontSize: 12, color: 'var(--dim)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.description}</p>}
+      </div>
+      {a.agent_name && <span style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0 }}>{a.agent_name.split(':')[0]}</span>}
+      <span style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0, fontFamily: 'monospace' }}>{formatBytes(a.size_bytes)}</span>
+      <span style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0 }}>{relativeTime(a.created_at)}</span>
+    </div>
+  );
+}
+
+function isDrive(a: Artifact) {
+  if (a.is_generated === true) return false;
+  if (a.is_generated === false) return true;
+  return !a.agent_name; // fallback: unclassified — use agent_name heuristic
+}
+
+function DriveTab({ data }: { data: PD }) {
+  const [search, setSearch] = useState('');
+  const q = search.toLowerCase();
+  const files = (data.artifacts ?? []).filter(a => isDrive(a) && (!q || a.name.toLowerCase().includes(q) || (a.description ?? '').toLowerCase().includes(q)));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Filter files…"
+        className="minput"
+        style={{ width: '100%', boxSizing: 'border-box' }}
+      />
+      {files.length === 0 && <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic', textAlign: 'center', padding: '32px 0' }}>No uploaded files</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {files.map(a => <ArtifactRow key={a.id} a={a} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Artifacts Tab ────────────────────────────────────────────────────────────
+
+function ArtifactsTab({ data }: { data: PD }) {
+  const [search, setSearch] = useState('');
+  const q = search.toLowerCase();
+  const artifacts = (data.artifacts ?? []).filter(a => !isDrive(a) && (!q || a.name.toLowerCase().includes(q) || (a.description ?? '').toLowerCase().includes(q)));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Filter artifacts…"
+        className="minput"
+        style={{ width: '100%', boxSizing: 'border-box' }}
+      />
+      {artifacts.length === 0 && <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic', textAlign: 'center', padding: '32px 0' }}>No AI-generated artifacts yet</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {artifacts.map(a => <ArtifactRow key={a.id} a={a} />)}
+      </div>
+    </div>
+  );
+}
+
+// ─── Activity Tab ─────────────────────────────────────────────────────────────
+
+function ActivityTab({ data }: { data: PD }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+      {/* Sessions */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Sessions</div>
+        {data.sessions.length === 0 && <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic' }}>No sessions</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {data.sessions.map(s => (
+            <div key={s.id} className="mcard" style={{ padding: '10px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--blue)' }}>{s.agent_name.split(':')[0]}</span>
+                <span style={{ fontSize: 11, color: 'var(--dim)', marginLeft: 'auto' }}>{relativeTime(s.created_at)}</span>
+              </div>
+              {s.summary && <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.summary}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Agents + Cron */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {data.agents.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Agents</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {data.agents.map(agent => {
+                const state = data.agentStates.find(s => s.agent_name === agent.name);
+                const status = state?.state?.status ?? 'idle';
+                const col = status === 'working' ? 'var(--blue)' : 'var(--dim)';
+                return (
+                  <div key={agent.name} className="mcard" style={{ padding: '10px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--dim)' }}>{agent.last_seen ? relativeTime(agent.last_seen) : '—'}</span>
+                    </div>
+                    {state?.state?.current_task && (
+                      <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, marginBottom: 0, paddingLeft: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{state.state.current_task}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {data.cronJobs.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Cron Jobs</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {data.cronJobs.map(job => {
+                const col = job.last_status === 'ok' ? '#4ade80' : '#ef4444';
+                return (
+                  <div key={job.id} className="mcard" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: col, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--dim)' }}>{job.agent_name} · {job.last_run ? relativeTime(job.last_run) : 'never'}</div>
+                    </div>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 500, background: `${col}18`, color: col }}>{job.last_status}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tasks Tab ────────────────────────────────────────────────────────────────
+
+function TasksTab({ data }: { data: PD }) {
+  const pending = data.tasks.filter(t => t.status === 'pending' || t.status === 'in-progress' || t.status === 'in_progress');
+  const done = data.tasks.filter(t => t.status === 'completed' || t.status === 'done');
+
+  function TaskRow({ t }: { t: PD['tasks'][0] }) {
+    const col = t.status === 'completed' || t.status === 'done' ? '#4ade80' : t.status === 'in-progress' ? '#60a5fa' : '#f59e0b';
+    const isDone = t.status === 'completed' || t.status === 'done';
+    return (
+      <div className="mcard" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', opacity: isDone ? 0.5 : 1 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0, marginTop: 5 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: 'var(--text)' }}>{t.title}</div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
+            {t.agent_name && <span style={{ color: 'var(--blue)' }}>{t.agent_name.split(':')[0]}</span>}
+            {t.agent_name && ' · '}p{t.priority} · {relativeTime(t.created_at)}
+          </div>
+        </div>
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 500, background: `${col}18`, color: col, flexShrink: 0 }}>{t.status}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {pending.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Active — {pending.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{pending.map(t => <TaskRow key={t.id} t={t} />)}</div>
+        </div>
+      )}
+      {done.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Completed — {done.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{done.map(t => <TaskRow key={t.id} t={t} />)}</div>
+        </div>
+      )}
+      {data.tasks.length === 0 && (
+        <p style={{ fontSize: 13, color: 'var(--dim)', fontStyle: 'italic', textAlign: 'center', padding: '16px 0' }}>No tasks yet</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const TABS = ['Backlog', 'Tasks', 'Memories', 'Drive', 'Artifacts', 'Activity'] as const;
+type Tab = typeof TABS[number];
+
+export function ProjectDetail({ projectId, onSelect }: { projectId: number; onSelect: (id: number) => void }) {
   const [data, setData] = useState<PD | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('Backlog');
 
-  function reload() {
-    fetchProjectDetail(projectId).then(setData).catch(() => {});
-  }
+  function reload() { fetchProjectDetail(projectId).then(setData).catch(() => {}); }
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null); setData(null);
     fetchProjectDetail(projectId)
-      .then(setData)
-      .catch(e => setError(String(e)))
-      .finally(() => setLoading(false));
+      .then(setData).catch(e => setError(String(e))).finally(() => setLoading(false));
   }, [projectId]);
 
+  if (loading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 13, color: 'var(--dim)' }}>Loading…</div>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ fontSize: 13, color: '#f87171' }}>{error}</div>
+    </div>
+  );
+
+  if (!data) return null;
+
+  const backlogCount = data.backlog.epics.length + data.backlog.unlinked_issues.length;
+  const driveCount = (data.artifacts ?? []).filter(a => isDrive(a)).length;
+  const artifactsCount = (data.artifacts ?? []).filter(a => !isDrive(a)).length;
+
   return (
-    <div style={{ minHeight: '100vh', background: c.bg, padding: '24px 32px', maxWidth: 1200, margin: '0 auto' }}>
-      <button
-        onClick={onBack}
-        style={{ background: 'none', border: 'none', color: '#4a9eff', cursor: 'pointer', fontSize: 13, padding: '0 0 20px 0' }}
-      >
-        ← Back to dashboard
-      </button>
-
-      {loading && <p style={{ color: c.muted }}>Loading…</p>}
-      {error && <p style={{ color: '#f87171' }}>{error}</p>}
-
-      {data && (
-        <>
-          {/* Header */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor(data.project.status), flexShrink: 0 }} />
-              <h1 style={{ color: c.text, fontSize: 22, fontWeight: 700, margin: 0 }}>{data.project.name}</h1>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: c.border, color: c.muted }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Header */}
+      <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <h1 className="gradient-text" style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>{data.project.name}</h1>
+              <span className={data.project.status === 'active' ? 'pill pill-green' : 'pill'}>
                 {data.project.status}
-              </span>
-              <span style={{ color: c.muted, fontSize: 11, marginLeft: 'auto' }}>
-                Updated {relativeTime(data.project.updated_at)}
               </span>
             </div>
             {data.project.description && (
-              <p style={{ color: c.muted, fontSize: 13, margin: '0 0 10px 20px' }}>{data.project.description}</p>
+              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>{data.project.description}</p>
             )}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--dim)', flexShrink: 0, paddingTop: 4 }}>{relativeTime(data.project.updated_at)}</div>
+        </div>
 
-            {/* Sub-projects */}
-            {data.children.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginLeft: 20 }}>
-                {data.children.map(child => (
-                  <div key={child.id} onClick={() => onSelect(child.id)} style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '5px 12px', borderRadius: 20, background: c.surface, border: `1px solid ${c.border}`,
-                    cursor: 'pointer',
+        {/* Sub-project pills */}
+        {data.children.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {data.children.map(child => (
+              <button
+                key={child.id}
+                onClick={() => onSelect(child.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 99, background: 'var(--card)', border: '1px solid var(--border-hover)', cursor: 'pointer', fontSize: 12, color: 'var(--text)' }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: child.status === 'active' ? 'var(--green)' : 'var(--dim)', flexShrink: 0 }} />
+                {child.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {TABS.map(t => {
+            const count = t === 'Backlog' ? backlogCount : t === 'Tasks' ? data.tasks.length : t === 'Memories' ? data.memories.length : t === 'Drive' ? driveCount : t === 'Artifacts' ? artifactsCount : data.sessions.length;
+            const isActive = tab === t;
+            return (
+              <button key={t} onClick={() => setTab(t)} className={`tab-btn${isActive ? ' active' : ''}`}>
+                {t}
+                {count > 0 && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    fontFamily: 'monospace',
+                    background: isActive ? 'rgba(59,130,246,0.15)' : 'var(--card)',
+                    color: isActive ? 'var(--blue)' : 'var(--dim)',
+                    marginLeft: 4,
                   }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor(child.status) }} />
-                    <span style={{ color: c.text, fontSize: 12 }}>{child.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Artifacts */}
-          {data.artifacts && data.artifacts.length > 0 && (
-            <ArtifactsWidget artifacts={data.artifacts} />
-          )}
-
-          {/* 2×2 Widget Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-
-            {/* Widget 1 — Backlog */}
-            <BacklogWidget projectId={data.project.id} backlog={data.backlog} reload={reload} />
-
-            {/* Widget 2 — Active Tasks */}
-            <Widget title="Tasks" count={data.tasks.length}>
-              {data.tasks.length === 0 ? (
-                <Empty msg="No tasks linked to this project." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {data.tasks.map(t => {
-                    const tColor = taskStatusColor[t.status] || '#9ca3af';
-                    return (
-                      <div key={t.id} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 8,
-                        padding: '8px 10px', borderRadius: 7,
-                        background: 'rgba(255,255,255,0.03)', border: `1px solid ${c.border}`,
-                        opacity: t.status === 'completed' || t.status === 'done' ? 0.55 : 1,
-                      }}>
-                        <span style={{
-                          width: 7, height: 7, borderRadius: '50%', background: tColor,
-                          flexShrink: 0, marginTop: 3,
-                        }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 12, color: c.text }}>{t.title}</div>
-                          <div style={{ fontSize: 11, color: c.muted, marginTop: 2 }}>
-                            {t.agent_name && <span style={{ color: '#4a9eff' }}>{t.agent_name.split(':')[0]}</span>}
-                            {t.agent_name && ' · '}
-                            p{t.priority} · {relativeTime(t.created_at)}
-                          </div>
-                        </div>
-                        <span style={{
-                          fontSize: 10, padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-                          background: `${tColor}22`, color: tColor,
-                        }}>
-                          {t.status}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Widget>
-
-            {/* Widget 3 — Memories */}
-            <Widget title="Memories" count={data.memories.length}>
-              {data.memories.length === 0 ? (
-                <Empty msg="No memories linked to this project yet." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {data.memories.map(m => {
-                    const mc = categoryColor[m.category] || '#9ca3af';
-                    return (
-                      <div key={m.id} style={{
-                        background: 'rgba(255,255,255,0.03)', border: `1px solid ${c.border}`,
-                        borderRadius: 8, padding: '10px 12px',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                          <span style={{
-                            fontSize: 9, padding: '2px 6px', borderRadius: 20, fontWeight: 600,
-                            background: `${mc}22`, color: mc,
-                          }}>
-                            {m.category}
-                          </span>
-                          <span style={{ fontSize: 10, color: c.muted, marginLeft: 'auto' }}>
-                            imp {m.importance} · {relativeTime(m.created_at)}
-                          </span>
-                        </div>
-                        <p style={{ color: c.text, fontSize: 12, lineHeight: 1.5, margin: 0 }}>{m.content}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Widget>
-
-            {/* Widget 4 — Agents & Cron Jobs */}
-            <Widget title="Agents & Cron Jobs">
-              {data.agents.length === 0 && data.cronJobs.length === 0 ? (
-                <Empty msg="No agents have worked on this project yet." />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {/* Agents */}
-                  {data.agents.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 10, color: c.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-                        Agents
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {data.agents.map(agent => {
-                          const state = data.agentStates.find(st => st.agent_name === agent.name);
-                          const status = state?.state?.status ?? 'idle';
-                          const color = statusColor(status);
-                          return (
-                            <div key={agent.name}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13, color: c.text }}>{agent.name}</span>
-                                <span style={{ fontSize: 10, color: c.muted, marginLeft: 'auto' }}>
-                                  {agent.last_seen ? relativeTime(agent.last_seen) : '—'}
-                                </span>
-                              </div>
-                              {state?.state?.current_task && (
-                                <div style={{ fontSize: 11, color: c.muted, marginLeft: 13, marginTop: 2 }}>
-                                  {state.state.current_task.length > 70
-                                    ? state.state.current_task.slice(0, 70) + '…'
-                                    : state.state.current_task}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cron Jobs */}
-                  {data.cronJobs.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 10, color: c.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-                        Cron Jobs
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {data.cronJobs.map(job => {
-                          const color = statusColor(job.last_status);
-                          return (
-                            <div key={job.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 3 }} />
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, color: c.text }}>{job.name}</div>
-                                <div style={{ fontSize: 11, color: c.muted }}>{job.agent_name} · {job.last_run ? relativeTime(job.last_run) : 'never'}</div>
-                              </div>
-                              <span style={{ ...s.badge(color), fontSize: 10 }}>{job.last_status}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recent Sessions */}
-                  {data.sessions.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 10, color: c.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-                        Recent Sessions
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                        {data.sessions.slice(0, 5).map(sess => (
-                          <div key={sess.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#4a9eff', fontSize: 11 }}>{sess.agent_name}</span>
-                              <span style={{ color: c.muted, fontSize: 10 }}>{relativeTime(sess.created_at)}</span>
-                            </div>
-                            {sess.summary && (
-                              <p style={{ color: c.muted, fontSize: 11, margin: 0, lineHeight: 1.4 }}>
-                                {sess.summary.length > 80 ? sess.summary.slice(0, 80) + '…' : sess.summary}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </Widget>
-          </div>
-        </>
-      )}
+      {/* Tab content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        {tab === 'Backlog' && <BacklogTab projectId={data.project.id} backlog={data.backlog} reload={reload} />}
+        {tab === 'Tasks' && <TasksTab data={data} />}
+        {tab === 'Memories' && <MemoriesTab data={data} />}
+        {tab === 'Drive' && <DriveTab data={data} />}
+        {tab === 'Artifacts' && <ArtifactsTab data={data} />}
+        {tab === 'Activity' && <ActivityTab data={data} />}
+      </div>
     </div>
   );
 }

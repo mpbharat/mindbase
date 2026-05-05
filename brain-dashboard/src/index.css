@@ -1,0 +1,168 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+:root {
+  --bg:           #09090b;
+  --surface:      #0f0f11;
+  --card:         #141416;
+  --card-hover:   #1a1a1d;
+  --border:       rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.13);
+  --border-blue:  rgba(59,130,246,0.35);
+  --text:         #e4e4e7;
+  --muted:        #71717a;
+  --dim:          #3f3f46;
+  --blue:         #3b82f6;
+  --blue-glow:    rgba(59,130,246,0.15);
+  --green:        #22c55e;
+  --amber:        #f59e0b;
+  --red:          #ef4444;
+  --radius:       10px;
+  --radius-lg:    14px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; }
+
+/* ── Card ──────────────────────────────────────────────────────── */
+.mcard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.2s, background 0.2s;
+}
+.mcard:hover { border-color: var(--border-hover); background: var(--card-hover); }
+
+/* ── Stat card ─────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+
+/* ── Pill / badge ──────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: transparent;
+}
+.pill-blue  { color: var(--blue);  border-color: rgba(59,130,246,0.25);  background: rgba(59,130,246,0.08); }
+.pill-green { color: var(--green); border-color: rgba(34,197,94,0.25);   background: rgba(34,197,94,0.08);  }
+.pill-amber { color: var(--amber); border-color: rgba(245,158,11,0.25);  background: rgba(245,158,11,0.08); }
+.pill-red   { color: var(--red);   border-color: rgba(239,68,68,0.25);   background: rgba(239,68,68,0.08);  }
+
+/* ── Row item ──────────────────────────────────────────────────── */
+.mrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.mrow:hover { border-color: var(--border-hover); }
+
+/* ── Epic row ──────────────────────────────────────────────────── */
+.epic-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  background: var(--card);
+  transition: border-color 0.15s;
+}
+.epic-row:hover { border-color: var(--border-hover); border-left-color: var(--blue); }
+.epic-row.done  { border-left-color: var(--dim); opacity: 0.5; }
+
+/* ── Tab bar ───────────────────────────────────────────────────── */
+.tab-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.tab-btn.active {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border-color: var(--border);
+}
+
+/* ── Pulse dot ─────────────────────────────────────────────────── */
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+
+/* ── Gradient text ─────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Sidebar item ──────────────────────────────────────────────── */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.sidebar-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.sidebar-item.active { color: var(--blue); background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.15); }
+
+/* ── Input ─────────────────────────────────────────────────────── */
+.minput {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.minput:focus { border-color: rgba(59,130,246,0.4); }
+.minput::placeholder { color: var(--dim); }

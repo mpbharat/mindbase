@@ -6,3 +6,5 @@ node_modules/
 *.pid
 *.log
 .worktrees/
+brain-worker/wrangler.toml
+brain-dashboard/dist/

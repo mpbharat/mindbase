@@ -1,4 +1,4 @@
-const BASE_URL = process.env.BRAIN_URL ?? 'https://brain-worker.YOUR_SUBDOMAIN.workers.dev';
+const BASE_URL = process.env.BRAIN_URL ?? '';
 const API_KEY = process.env.BRAIN_API_KEY ?? '';
 const AGENT_NAME = process.env.BRAIN_AGENT_NAME ?? 'claude-unknown';
 
