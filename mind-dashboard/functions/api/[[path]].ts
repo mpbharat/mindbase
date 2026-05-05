@@ -5,7 +5,7 @@ export async function onRequest(context: any): Promise<Response> {
     const request = context.request;
     const url = new URL(request.url);
     const workerPath = '/' + (params.path ?? []).join('/');
-    const workerUrl = `${env.BRAIN_WORKER_URL}${workerPath}${url.search}`;
+    const workerUrl = `${env.MIND_WORKER_URL}${workerPath}${url.search}`;
     const res = await fetch(workerUrl, {
       method: request.method,
       headers: { 'Authorization': `Bearer ${env.MIND_API_KEY}`, 'Content-Type': 'application/json' },
