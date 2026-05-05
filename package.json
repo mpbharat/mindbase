@@ -1,4 +1,16 @@
 {
+  "name": "brain",
+  "version": "1.0.0",
+  "description": "Persistent memory OS for Claude — cross-session, cross-machine, cross-agent",
+  "bin": {
+    "brain-install": "./bin/brain-install.js",
+    "brain-join": "./bin/brain-join.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["claude", "ai", "memory", "cloudflare", "workers"],
+  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0"
   }
