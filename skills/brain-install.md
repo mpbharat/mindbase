@@ -102,19 +102,63 @@ npx wrangler deploy
 
 ## Phase 4 — Database (Neon)
 
-Brain uses Neon PostgreSQL — free tier, always-on, no cold starts.
+Brain stores all memories, sessions, tasks, projects, and artifacts in PostgreSQL.
+It uses **Neon** — a serverless Postgres with a permanent free tier. This is the one
+external service outside Cloudflare. It's needed because Cloudflare's own database
+(D1) doesn't yet support pgvector, which powers semantic search on memories.
+Neon setup takes about 2 minutes.
 
-Tell the user:
-> "Go to neon.tech, sign up free, create a project called 'brain', then copy the connection string."
+### Why not just Cloudflare?
 
-The connection string looks like:
-`postgres://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`
+Tell the user this if they ask:
+> "Brain uses Cloudflare for everything except the database — Worker, R2 file storage,
+> AI embeddings, and the dashboard all run on Cloudflare's free tier. The database sits
+> on Neon because it supports pgvector (semantic memory search), which Cloudflare D1
+> doesn't yet. When Cloudflare adds vector support, Brain will move fully onto one
+> platform. For now, Neon's free tier is permanent and has no cold starts."
+
+### Step-by-step Neon setup
+
+Walk the user through this:
+
+**1. Go to neon.tech**
+Tell the user: "Open neon.tech in your browser — sign up with GitHub or Google,
+no credit card needed."
+
+Wait for them to confirm they're signed in.
+
+**2. Create a project**
+Tell the user: "Click 'New Project'. Name it `brain`. Leave region as default
+(pick the one closest to you). Click Create."
+
+**3. Get the connection string**
+Tell the user: "On the project dashboard, click 'Connect'. Make sure 'Connection
+string' is selected. Copy the full string — it looks like:
+`postgres://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require`"
+
+Important: confirm with the user that the string ends with `?sslmode=require`.
+If it doesn't, tell them to add it — the Worker will fail to connect without it.
+
+**4. Set it as a secret**
 
 ```bash
 cd ~/brain/brain-worker
 npx wrangler secret put DATABASE_URL
-# paste the connection string
+# paste the full connection string when prompted
 ```
+
+**5. Verify the connection**
+
+After all secrets are set and the worker is deployed (Phase 5), test it:
+```bash
+curl -s "$BRAIN_URL/health"
+# should return: {"status":"ok","service":"brain-worker"}
+```
+
+If you get a database error instead, the most common causes are:
+- Missing `?sslmode=require` at the end of the connection string
+- Copied the "pooled" connection string instead of the direct one — use the direct one
+- Pasted with a trailing space — re-run `wrangler secret put DATABASE_URL` and paste again
 
 ---
 
