@@ -1,8 +1,8 @@
 # Mindbase
 
-Persistent memory OS for Claude. Cross-session, cross-machine, cross-agent.
+**[mindbase.one](https://mindbase.one)** · Persistent memory OS for Claude. Cross-session, cross-machine, cross-agent.
 
-One command installs everything — Cloudflare Worker, database, CLI hooks, and a full web dashboard. Your Claude starts remembering.
+One command installs everything: Cloudflare Worker, database, CLI hooks, and a full web dashboard. Your Claude starts remembering.
 
 ```bash
 npx mindbase-install
@@ -16,19 +16,19 @@ npx mindbase-install
 
 Every project. Every agent. Every decision Claude made and why.
 
-**Projects** — hierarchical view of everything you're working on. Memory count, task count, last session summary. Tap into any project to see the full picture.
+**Projects**: hierarchical view of everything you're working on. Memory count, task count, last session summary. Tap into any project to see the full picture.
 
 **Inside each project:**
-- **Backlog** — epics and issues with priority and status. Create inline.
-- **Tasks** — pending and completed agent tasks
-- **Memories** — every non-obvious decision Claude saved, tagged by category and importance. Searchable.
-- **Drive** — source files you gave Claude (PDFs, specs, reference docs)
-- **Artifacts** — documents Claude generated (plans, drafts, analyses). Auto-classified by Haiku on upload — no manual sorting.
-- **Activity** — session log for this project
+- **Backlog**: epics and issues with priority and status. Create inline.
+- **Tasks**: pending and completed agent tasks
+- **Memories**: every non-obvious decision Claude saved, tagged by category and importance. Searchable.
+- **Drive**: source files you gave Claude (PDFs, specs, reference docs)
+- **Artifacts**: documents Claude generated (plans, drafts, analyses). Auto-classified by Haiku on upload, no manual sorting.
+- **Activity**: session log for this project
 
-**Overview** — cross-project command centre: live agent states, recent sessions, stats, cron jobs
+**Overview**: cross-project command centre: live agent states, recent sessions, stats, cron jobs
 
-**Sessions panel** — full history of every session across all projects and machines
+**Sessions panel**: full history of every session across all projects and machines
 
 ---
 
@@ -38,7 +38,7 @@ Claude forgets everything when a session ends. Mindbase doesn't.
 
 Every time you close a session, Claude saves:
 - A one-sentence summary of what was done
-- Non-obvious decisions in why-format: *"chose X — why: Y — not Z because tradeoff"*
+- Non-obvious decisions in why-format: *"chose X, why: Y, not Z because tradeoff"*
 - Concrete next steps as tasks
 - Agent state set to idle
 
@@ -48,7 +48,7 @@ Next session, Claude fetches all of that back before touching a single file.
 
 ### Coordination across agents
 
-Multiple Claude sessions running simultaneously — different machines, different projects — share the same memory layer. One saves. Another picks it up. No manual handoff.
+Multiple Claude sessions running simultaneously, across different machines and projects, sharing the same memory layer. One saves. Another picks it up. No manual handoff.
 
 ```
 Claude (mac)  ──┐
@@ -64,11 +64,11 @@ This is the hivemind concept: you at the centre, all your agents connected to th
 
 Mindbase writes `mind-sync` into your `~/.claude/CLAUDE.md` during install. Every Claude session from then on follows a 3-phase lifecycle without being asked:
 
-**Open** — fetch project context → confirm outcome → flag anything more urgent → set agent working
+**Open**: fetch project context → confirm outcome → flag anything more urgent → set agent working
 
-**Mid-session** — on context compaction: push progress, pull updates from other agents, direction check
+**Mid-session**: on context compaction: push progress, pull updates from other agents, direction check
 
-**Close** — say "close session". Claude saves everything and replies "Saved. Session closed." Nothing else.
+**Close**: say "close session". Claude saves everything and replies "Saved. Session closed." Nothing else.
 
 ---
 
@@ -112,9 +112,9 @@ Claude asks for your `MIND_URL` and `MIND_API_KEY`. No infra. No new accounts. S
 | AI | Workers AI (embeddings) + Claude Haiku (artifact classification) |
 | Database | Neon Postgres with pgvector (semantic memory search) |
 | Dashboard | React + Vite on Cloudflare Pages |
-| CLI | Node.js — `context`, `fetch`, `save` commands |
+| CLI | Node.js: `context`, `fetch`, `save` commands |
 
-Everything except Neon runs on Cloudflare's free tier. Neon is free tier too — it's separate because Cloudflare D1 doesn't support pgvector yet.
+Everything except Neon runs on Cloudflare's free tier. Neon is free tier too, it's separate because Cloudflare D1 doesn't support pgvector yet.
 
 ---
 
@@ -138,7 +138,7 @@ All requests: `Authorization: Bearer <MIND_API_KEY>`
 
 ## Self-Hosting
 
-Mindbase is designed for Cloudflare but the worker is a standard fetch handler — runs anywhere that supports the [WinterCG](https://wintercg.org/) runtime. R2 can be swapped for any S3-compatible store.
+Mindbase is designed for Cloudflare but the worker is a standard fetch handler, runs anywhere that supports the [WinterCG](https://wintercg.org/) runtime. R2 can be swapped for any S3-compatible store.
 
 See `mind-worker/wrangler.toml.example` for configuration reference.
 
