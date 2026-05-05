@@ -1,15 +1,21 @@
 {
   "name": "mindbase",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Persistent memory OS for Claude — cross-session, cross-machine, cross-agent",
   "bin": {
-    "mindbase-install": "./bin/mindbase-install.js",
-    "mindbase-join": "./bin/mindbase-join.js"
+    "mindbase-install": "bin/mindbase-install.js",
+    "mindbase-join": "bin/mindbase-join.js"
   },
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["claude", "ai", "memory", "cloudflare", "workers"],
+  "keywords": [
+    "claude",
+    "ai",
+    "memory",
+    "cloudflare",
+    "workers"
+  ],
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.92.0"
