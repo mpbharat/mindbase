@@ -1,4 +1,4 @@
-# Brain
+# Mindbase
 
 Persistent memory OS for Claude. Cross-session, cross-machine, cross-agent.
 
@@ -8,17 +8,17 @@ Persistent memory OS for Claude. Cross-session, cross-machine, cross-agent.
 
 Most people building with AI work at the **robotic arm level** — one agent, excellent at tasks, maybe with local memory. But one arm doesn't know what the other arms are doing.
 
-Brain sits above the arms. It's a cloud-hosted memory layer that all your Claude agents — across machines, across sessions — read from and write to. When Claude on your Mac finishes a session, Claude on your server picks up exactly where it left off.
+Mindbase sits above the arms. It's a cloud-hosted memory layer that all your Claude agents — across machines, across sessions — read from and write to. When Claude on your Mac finishes a session, Claude on your server picks up exactly where it left off.
 
-Memory at the brain level, not the arm level.
+Memory at the mind level, not the arm level.
 
-**Three things Brain solves:**
+**Three things Mindbase solves:**
 
-1. **Memory across sessions** — Claude forgets everything when a session ends. Brain stores memories, decisions, and summaries and injects them back at the start of every new session.
+1. **Memory across sessions** — Claude forgets everything when a session ends. Mindbase stores memories, decisions, and summaries and injects them back at the start of every new session.
 
 2. **Coordination across agents** — Multiple Claude sessions running simultaneously (different machines, different projects) share context without talking to each other. One saves, another picks it up.
 
-3. **Intentionality** — Brain enforces a PM-style session lifecycle: check priorities before starting, course-correct mid-session, capture the "why" at close.
+3. **Intentionality** — Mindbase enforces a PM-style session lifecycle: check priorities before starting, course-correct mid-session, capture the "why" at close.
 
 ---
 
@@ -49,7 +49,7 @@ You just answer a few questions. Claude does the rest.
 npx mindbase-join
 ```
 
-Claude asks for your `MIND_URL` and `MIND_API_KEY` from the first install. No infra to deploy. Same brain, new machine.
+Claude asks for your `MIND_URL` and `MIND_API_KEY` from the first install. No infra to deploy. Same mind, new machine.
 
 ---
 
@@ -59,8 +59,8 @@ Claude asks for your `MIND_URL` and `MIND_API_KEY` from the first install. No in
 mind-worker/        Cloudflare Worker — REST API, Neon Postgres, R2
 mind-cli/           Node.js CLI — session hooks (context, fetch, save)
 mind-dashboard/     React dashboard — project-first view of everything
-bin/                 npx entry points (mindbase-install, mindbase-join)
-skills/              Claude skill files (mindbase-install, mind-sync)
+bin/                npx entry points (mindbase-install, mindbase-join)
+skills/             Claude skill files (mindbase-install, mind-sync)
 ```
 
 **Backend:** Cloudflare Workers (API) + R2 (file storage) + Workers AI (embeddings + classification) + Neon Postgres (data). Everything on Cloudflare's free tier.
@@ -106,11 +106,11 @@ Deployed to Cloudflare Pages during install. Shows:
 
 ## Session Lifecycle
 
-Brain enforces a 3-phase lifecycle:
+Mindbase enforces a 3-phase lifecycle:
 
 **Open** — Claude fetches project context, asks what the outcome should be, flags anything more urgent in the backlog, writes `agent_state: working`.
 
-**Mid-session** — On context compaction, Claude pushes progress to Brain and pulls any updates from other agents. Direction check: still on track?
+**Mid-session** — On context compaction, Claude pushes progress to Mindbase and pulls any updates from other agents. Direction check: still on track?
 
 **Close** — User says "close session". Claude saves memories (why-format: `"what — why: reason — not alternative because tradeoff"`), tasks, session summary, sets agent idle. One reply: "Saved. Session closed."
 
@@ -137,7 +137,7 @@ All requests: `Authorization: Bearer <MIND_API_KEY>`
 
 ## Self-Hosting
 
-Brain is designed for Cloudflare but the worker is a standard fetch handler — it runs anywhere that supports the [WinterCG](https://wintercg.org/) runtime. R2 can be swapped for any S3-compatible store by changing the binding.
+Mindbase is designed for Cloudflare but the worker is a standard fetch handler — it runs anywhere that supports the [WinterCG](https://wintercg.org/) runtime. R2 can be swapped for any S3-compatible store by changing the binding.
 
 See `mind-worker/wrangler.toml.example` for the full configuration reference.
 
