@@ -1,37 +1,37 @@
 ---
-name: brain-sync
+name: mind-sync
 description: Connects Hermes to the shared brain at brain.YOUR_DOMAIN.com for persistent memory across all agents and machines.
 ---
 
-# Brain Sync for Hermes
+# Mind Sync for Hermes
 
 ## Session Start
 
 On activation, call GET /context to load current state as resident memory:
 
 ```bash
-curl -s "$BRAIN_URL/context" \
-  -H "Authorization: Bearer $BRAIN_API_KEY"
+curl -s "$MIND_URL/context" \
+  -H "Authorization: Bearer $MIND_API_KEY"
 ```
 
 Then report session start:
 ```bash
-curl -s -X POST "$BRAIN_URL/cron" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/cron" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"session-start\",\"agent_name\":\"$BRAIN_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
+  -d "{\"name\":\"session-start\",\"agent_name\":\"$MIND_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
 ```
 
 Set env vars:
 ```bash
-export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
-export BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev"
-export BRAIN_AGENT_NAME="hermes-mac"   # or hermes-ubuntu
+export MIND_API_KEY="MIND_API_KEY_PLACEHOLDER"
+export MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev"
+export MIND_AGENT_NAME="hermes-mac"   # or hermes-ubuntu
 ```
 
 ## API Reference
 
-All requests: `Authorization: Bearer $BRAIN_API_KEY`
+All requests: `Authorization: Bearer $MIND_API_KEY`
 
 | Action | Request |
 |---|---|
@@ -46,8 +46,8 @@ All requests: `Authorization: Bearer $BRAIN_API_KEY`
 ## Session End
 
 ```bash
-curl -s -X POST "$BRAIN_URL/session" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/session" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"agent_name\":\"$BRAIN_AGENT_NAME\",\"summary\":\"What was done\",\"duration_minutes\":60}"
+  -d "{\"agent_name\":\"$MIND_AGENT_NAME\",\"summary\":\"What was done\",\"duration_minutes\":60}"
 ```

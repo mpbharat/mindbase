@@ -1,4 +1,4 @@
-# Brain Dashboard Design
+# Mind Dashboard Design
 
 **Date:** 2026-04-17  
 **Status:** Approved
@@ -7,7 +7,7 @@
 
 ## Goal
 
-A single-page web dashboard at `brain.YOUR_DOMAIN.com` showing all brain state at a glance: active agents and their sub-agents, cron jobs, active tasks, projects, recent memories, and recent sessions. Built for Bharat now, architected to extend to multi-user StellarOS later.
+A single-page web dashboard at `mind.YOUR_DOMAIN.com` showing all brain state at a glance: active agents and their sub-agents, cron jobs, active tasks, projects, recent memories, and recent sessions. Built for Bharat now, architected to extend to multi-user StellarOS later.
 
 ---
 
@@ -16,24 +16,24 @@ A single-page web dashboard at `brain.YOUR_DOMAIN.com` showing all brain state a
 ### Hosting
 Vite React app deployed to Cloudflare Pages. Cloudflare Pages serves the static frontend and runs a catch-all Pages Function that proxies all `/api/*` requests to the brain worker, injecting the API key server-side.
 
-`brain.YOUR_DOMAIN.com` → Cloudflare Pages (dashboard UI + proxy function)  
-`brain-worker.YOUR_SUBDOMAIN.workers.dev` → Cloudflare Worker (existing REST API, unchanged URL)
+`mind.YOUR_DOMAIN.com` → Cloudflare Pages (dashboard UI + proxy function)  
+`mind-worker.YOUR_SUBDOMAIN.workers.dev` → Cloudflare Worker (existing REST API, unchanged URL)
 
 ### Data Flow
 ```
 Browser
   → GET /api/context (Pages Function)
-  → adds Authorization: Bearer $BRAIN_API_KEY
-  → brain-worker.YOUR_SUBDOMAIN.workers.dev/context
+  → adds Authorization: Bearer $MIND_API_KEY
+  → mind-worker.YOUR_SUBDOMAIN.workers.dev/context
   → Neon Postgres
   → response back to browser
 ```
 
-The API key is stored as a Cloudflare Pages environment variable (`BRAIN_API_KEY`). The frontend never sees it.
+The API key is stored as a Cloudflare Pages environment variable (`MIND_API_KEY`). The frontend never sees it.
 
 ### File Structure
 ```
-brain-dashboard/
+mind-dashboard/
   src/
     App.tsx                   — root component, polling loop
     components/
@@ -139,22 +139,22 @@ Last 10 sessions across all agents. Shows agent name, timestamp, summary.
 
 ---
 
-## brain-sync Skill Updates
+## mind-sync Skill Updates
 
-The `skills/claude-code/brain-sync.md` and `skills/hermes/brain-sync.md` are updated to document how agents report crons and sub-agents:
+The `skills/claude-code/mind-sync.md` and `skills/hermes/mind-sync.md` are updated to document how agents report crons and sub-agents:
 
 **Report a cron job firing:**
 ```bash
-curl -s -X POST "$BRAIN_URL/cron" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/cron" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"context-load","agent_name":"claude-mac","schedule":"@session_start","last_status":"ok"}'
 ```
 
 **Report a sub-agent:**
 ```bash
-curl -s -X POST "$BRAIN_URL/subagent" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/subagent" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"parent_agent":"claude-mac","name":"Explore","task":"Find API endpoints","status":"running"}'
 ```
@@ -163,11 +163,11 @@ curl -s -X POST "$BRAIN_URL/subagent" \
 
 ## Deployment
 
-1. `brain-dashboard/` lives in the `mpbharat/brain` GitHub repo
+1. `mind-dashboard/` lives in the `mpbharat/brain` GitHub repo
 2. Cloudflare Pages connected to the repo, build command: `npm run build`, output: `dist/`
-3. `BRAIN_API_KEY` set as a Cloudflare Pages environment variable
-4. `brain.YOUR_DOMAIN.com` custom domain pointed at Cloudflare Pages (replacing the current worker route)
-5. Brain worker stays at `brain-worker.YOUR_SUBDOMAIN.workers.dev` — the Pages Function calls it directly
+3. `MIND_API_KEY` set as a Cloudflare Pages environment variable
+4. `mind.YOUR_DOMAIN.com` custom domain pointed at Cloudflare Pages (replacing the current worker route)
+5. Brain worker stays at `mind-worker.YOUR_SUBDOMAIN.workers.dev` — the Pages Function calls it directly
 
 ---
 

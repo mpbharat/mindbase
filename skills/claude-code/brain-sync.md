@@ -1,9 +1,9 @@
 ---
-name: brain-sync
+name: mind-sync
 description: Gives Claude persistent memory across all sessions and machines via brain.YOUR_DOMAIN.com. Loaded automatically at session start.
 ---
 
-# Brain Sync
+# Mind Sync
 
 You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block injected at session start contains your current projects, recent memories, active tasks, cron jobs, and active sub-agents.
 
@@ -18,32 +18,32 @@ You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block 
 
 3. Register with the specific agent name:
 ```bash
-curl -s "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/context?agent=claude-ubuntu:Label" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" > /dev/null
+curl -s "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/context?agent=claude-ubuntu:Label" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" > /dev/null
 ```
 
 ## During a Session
 
 ### Save a memory
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"content":"<lesson>","category":"decision","importance":8}'
 ```
 
 ### Create a task
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/task" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/task" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"title":"<task>","project":"<project>","status":"active"}'
 ```
 
 ### Report a sub-agent dispatched
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/subagent" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/subagent" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"parent_agent":"claude-ubuntu:Label","name":"<agent-type>","task":"<what it is doing>","status":"running"}'
 ```

@@ -1,10 +1,10 @@
 .DS_Store
-OLD_IDEAS/stellaros/
+OLD_IDEAS/
 node_modules/
 .env
 .env.local
 *.pid
 *.log
 .worktrees/
-brain-worker/wrangler.toml
-brain-dashboard/dist/
+mind-worker/wrangler.toml
+mind-dashboard/dist/

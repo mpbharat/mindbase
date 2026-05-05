@@ -16,8 +16,8 @@ From the conversation extract:
 
 ## Step 2 — Save memories (one curl per save-worthy memory)
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"content":"<memory>","category":"<decision|fact|project|person>","importance":<6-10>,"agent_name":"claude-mac:<Label>","project_id":<id or null>}'
 ```
@@ -31,16 +31,16 @@ Project IDs: Zaasu=2, KPS/Mart=3, Anchor=1, Personal=6, LifeOS=8, Mart PIM SaaS=
 
 **Tasks** (completed or to-do within this session — save as agent_task):
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/task" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/task" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"title":"<specific action done or to do>","priority":<1-10>,"status":"pending","agent_name":"claude-mac:<Label>","project_id":<id or null>}'
 ```
 
 **Issues** (started but will spill to next session — save as backlog_item type=issue):
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d '{"title":"<what was started but unfinished>","priority":<1-10>,"type":"issue","parent_id":<epic id if known, else null>,"project_id":<id or null>,"tags":["<project>"]}'
 ```
@@ -52,12 +52,12 @@ curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
 - Started but needs another session? → backlog_item type=issue
 - Big initiative spanning weeks? → Epic (create manually in dashboard, not here)
 
-## Step 5 — brain-cli save
+## Step 5 — mind-cli save
 ```bash
-BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER" \
-BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev" \
-BRAIN_AGENT_NAME="claude-mac:$(basename $PWD)" \
-node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js save \
+MIND_API_KEY="MIND_API_KEY_PLACEHOLDER" \
+MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev" \
+MIND_AGENT_NAME="claude-mac:$(basename $PWD)" \
+node ~//Documents/Claude/LifeOS/mind-cli/dist/index.js save \
   --summary "<one-sentence summary>" \
   --next "<what to do next session>"
 ```
@@ -65,13 +65,13 @@ Skip `--memory` here (saved in Step 2). Only include `--next` if real follow-up 
 
 ## Step 6 — Log session + update agent state to idle
 ```bash
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/session" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/session" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d "{\"agent_name\":\"claude-mac:$(basename $PWD)\",\"summary\":\"<same summary>\",\"project_id\":<id or null>}"
 
-curl -s -X POST "https://brain-worker.YOUR_SUBDOMAIN.workers.dev/agent-state" \
-  -H "Authorization: Bearer BRAIN_API_KEY_PLACEHOLDER" \
+curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/agent-state" \
+  -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
   -d "{\"agent_name\":\"claude-mac:$(basename $PWD)\",\"state\":{\"status\":\"idle\",\"current_task\":null,\"next_task\":\"<what to pick up next session>\"}}"
 ```

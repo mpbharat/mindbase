@@ -1,35 +1,35 @@
 # Ubuntu Brain Setup — Instructions for Claude Code
 
-You are Claude Code running on Bharat's Ubuntu machine. Your job is to set up the brain system so this machine has persistent memory synced with the Mac and any other agents.
+You are Claude Code running on Bharat's Ubuntu machine. Your job is to set up the mind system so this machine has persistent memory synced with the Mac and any other agents.
 
 Do these steps in order. No need to ask for confirmation — just do them.
 
 ---
 
-## Step 1: Clone the brain repo
+## Step 1: Clone the mind repo
 
 ```bash
-git clone https://github.com/mpbharat/brain.git /home/$(whoami)/brain
+git clone https://github.com/mpbharat/mindbase.git /home/$(whoami)/brain
 ```
 
 ---
 
-## Step 2: Build brain-cli
+## Step 2: Build mind-cli
 
 ```bash
-cd /home/$(whoami)/brain/brain-cli
+cd /home/$(whoami)/mind/mind-cli
 npm install
 npm run build
 ```
 
 Verify it works:
 ```bash
-BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER" \
-BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev" \
-node /home/$(whoami)/brain/brain-cli/dist/index.js context
+MIND_API_KEY="MIND_API_KEY_PLACEHOLDER" \
+MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev" \
+node /home/$(whoami)/mind/mind-cli/dist/index.js context
 ```
 
-You should see a `<brain-context>` block printed. If you get an error, stop and report it.
+You should see a `<mind-context>` block printed. If you get an error, stop and report it.
 
 ---
 
@@ -45,9 +45,9 @@ If zsh:
 cat >> ~/.zshrc << 'EOF'
 
 # Brain — persistent AI agent memory
-export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
-export BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev"
-export BRAIN_AGENT_NAME="claude-ubuntu"
+export MIND_API_KEY="MIND_API_KEY_PLACEHOLDER"
+export MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev"
+export MIND_AGENT_NAME="claude-ubuntu"
 EOF
 source ~/.zshrc
 ```
@@ -57,9 +57,9 @@ If bash:
 cat >> ~/.bashrc << 'EOF'
 
 # Brain — persistent AI agent memory
-export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
-export BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev"
-export BRAIN_AGENT_NAME="claude-ubuntu"
+export MIND_API_KEY="MIND_API_KEY_PLACEHOLDER"
+export MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev"
+export MIND_AGENT_NAME="claude-ubuntu"
 EOF
 source ~/.bashrc
 ```
@@ -79,7 +79,7 @@ Read the current `~/.claude/settings.json`. It may or may not exist.
         "hooks": [
           {
             "type": "command",
-            "command": "node /home/YOUR_USERNAME/brain/brain-cli/dist/index.js context"
+            "command": "node /home/YOUR_USERNAME/mind/mind-cli/dist/index.js context"
           }
         ]
       }
@@ -93,11 +93,11 @@ Replace `YOUR_USERNAME` with the actual Linux username (run `whoami` to get it).
 
 ---
 
-## Step 5: Install the brain-sync skill
+## Step 5: Install the mind-sync skill
 
 ```bash
-mkdir -p ~/.claude/skills/brain-sync
-cp /home/$(whoami)/brain/skills/claude-code/brain-sync.md ~/.claude/skills/brain-sync/SKILL.md
+mkdir -p ~/.claude/skills/mind-sync
+cp /home/$(whoami)/brain/skills/claude-code/mind-sync.md ~/.claude/skills/mind-sync/SKILL.md
 ```
 
 ---
@@ -107,17 +107,17 @@ cp /home/$(whoami)/brain/skills/claude-code/brain-sync.md ~/.claude/skills/brain
 Run a final context fetch with env vars loaded:
 ```bash
 source ~/.zshrc  # or ~/.bashrc
-node ~/brain/brain-cli/dist/index.js context
+node ~/mind/mind-cli/dist/index.js context
 ```
 
-You should see the full `<brain-context>` block with Bharat's projects, memories, and tasks.
+You should see the full `<mind-context>` block with Bharat's projects, memories, and tasks.
 
 ---
 
 ## What NOT to do
 
-- Do not change `BRAIN_AGENT_NAME` — it must be `"claude-ubuntu"` so sessions from this machine are identified separately from the Mac
-- Do not run `npm install -g` for brain-cli — it's run directly via `node path/to/dist/index.js`
+- Do not change `MIND_AGENT_NAME` — it must be `"claude-ubuntu"` so sessions from this machine are identified separately from the Mac
+- Do not run `npm install -g` for mind-cli — it's run directly via `node path/to/dist/index.js`
 - Do not create a new Cloudflare Worker or Neon DB — the live infrastructure is already deployed and shared
 
 ---

@@ -27,7 +27,7 @@ Memory at the brain level, not the arm level.
 ### First machine (full setup ~15 minutes)
 
 ```bash
-npx brain-install
+npx mindbase-install
 ```
 
 Claude Code walks you through everything:
@@ -35,8 +35,8 @@ Claude Code walks you through everything:
 - Neon PostgreSQL database setup
 - All secrets and migrations
 - Auto-discovery and mapping of your existing projects
-- brain-cli build and shell configuration
-- brain-sync skill written into your `~/.claude/CLAUDE.md` automatically
+- mind-cli build and shell configuration
+- mind-sync skill written into your `~/.claude/CLAUDE.md` automatically
 - Dashboard deployed to Cloudflare Pages
 
 You just answer a few questions. Claude does the rest.
@@ -46,26 +46,26 @@ You just answer a few questions. Claude does the rest.
 ### Second machine (30 seconds)
 
 ```bash
-npx brain-join
+npx mindbase-join
 ```
 
-Claude asks for your `BRAIN_URL` and `BRAIN_API_KEY` from the first install. No infra to deploy. Same brain, new machine.
+Claude asks for your `MIND_URL` and `MIND_API_KEY` from the first install. No infra to deploy. Same brain, new machine.
 
 ---
 
 ## How It Works
 
 ```
-brain-worker/        Cloudflare Worker — REST API, Neon Postgres, R2
-brain-cli/           Node.js CLI — session hooks (context, fetch, save)
-brain-dashboard/     React dashboard — project-first view of everything
-bin/                 npx entry points (brain-install, brain-join)
-skills/              Claude skill files (brain-install, brain-sync)
+mind-worker/        Cloudflare Worker — REST API, Neon Postgres, R2
+mind-cli/           Node.js CLI — session hooks (context, fetch, save)
+mind-dashboard/     React dashboard — project-first view of everything
+bin/                 npx entry points (mindbase-install, mindbase-join)
+skills/              Claude skill files (mindbase-install, mind-sync)
 ```
 
 **Backend:** Cloudflare Workers (API) + R2 (file storage) + Workers AI (embeddings + classification) + Neon Postgres (data). Everything on Cloudflare's free tier.
 
-**Session lifecycle:** Every Claude session opens by fetching project context. Every session closes by saving memories, tasks, and a summary. brain-sync is written into `~/.claude/CLAUDE.md` during install — Claude does this automatically without being asked.
+**Session lifecycle:** Every Claude session opens by fetching project context. Every session closes by saving memories, tasks, and a summary. mind-sync is written into `~/.claude/CLAUDE.md` during install — Claude does this automatically without being asked.
 
 ---
 
@@ -75,7 +75,7 @@ skills/              Claude skill files (brain-install, brain-sync)
 ┌─────────────────────────────────────────────────────────┐
 │                     Your Machines                       │
 │  Claude (mac) ──┐                                       │
-│  Claude (linux) ├──► brain-cli ──► Cloudflare Worker   │
+│  Claude (linux) ├──► mind-cli ──► Cloudflare Worker   │
 │  Claude (server)┘                       │               │
 └─────────────────────────────────────────┼───────────────┘
                                           ▼
@@ -131,7 +131,7 @@ Brain enforces a 3-phase lifecycle:
 | `POST /artifact` | Save artifact metadata |
 | `POST /artifacts/classify` | Reclassify existing artifacts with Haiku |
 
-All requests: `Authorization: Bearer <BRAIN_API_KEY>`
+All requests: `Authorization: Bearer <MIND_API_KEY>`
 
 ---
 
@@ -139,7 +139,7 @@ All requests: `Authorization: Bearer <BRAIN_API_KEY>`
 
 Brain is designed for Cloudflare but the worker is a standard fetch handler — it runs anywhere that supports the [WinterCG](https://wintercg.org/) runtime. R2 can be swapped for any S3-compatible store by changing the binding.
 
-See `brain-worker/wrangler.toml.example` for the full configuration reference.
+See `mind-worker/wrangler.toml.example` for the full configuration reference.
 
 ---
 

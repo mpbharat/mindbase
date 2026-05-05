@@ -1,10 +1,10 @@
-# Brain Dashboard Implementation Plan
+# Mind Dashboard Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a single-page web dashboard at brain.YOUR_DOMAIN.com showing all brain state — agents, sub-agents, cron jobs, tasks, projects, memories, sessions.
+**Goal:** Build a single-page web dashboard at mind.YOUR_DOMAIN.com showing all brain state — agents, sub-agents, cron jobs, tasks, projects, memories, sessions.
 
-**Architecture:** Vite React app in `brain-dashboard/` deployed to Cloudflare Pages. A catch-all Pages Function (`functions/api/[[path]].ts`) proxies all `/api/*` requests to the brain worker with the API key injected server-side. The brain worker gets new endpoints for cron jobs, sub-agents, and agent listing.
+**Architecture:** Vite React app in `mind-dashboard/` deployed to Cloudflare Pages. A catch-all Pages Function (`functions/api/[[path]].ts`) proxies all `/api/*` requests to the brain worker with the API key injected server-side. The brain worker gets new endpoints for cron jobs, sub-agents, and agent listing.
 
 **Tech Stack:** Vite 6, React 18, TypeScript, Cloudflare Pages, Cloudflare Pages Functions, Neon Postgres (existing)
 
@@ -12,34 +12,34 @@
 
 ## File Map
 
-**New files — brain-worker:**
-- `brain-worker/src/index.ts` — add 6 new endpoints, update /context (modify)
+**New files — mind-worker:**
+- `mind-worker/src/index.ts` — add 6 new endpoints, update /context (modify)
 
 **New files — DB:**
 - `db/schema.sql` — add cron_jobs + subagents tables (modify)
 
-**New files — brain-dashboard:**
-- `brain-dashboard/package.json`
-- `brain-dashboard/tsconfig.json`
-- `brain-dashboard/vite.config.ts`
-- `brain-dashboard/index.html`
-- `brain-dashboard/.env.local` (gitignored — dev only)
-- `brain-dashboard/wrangler.toml`
-- `brain-dashboard/functions/api/[[path]].ts` — proxy to brain worker
-- `brain-dashboard/src/types.ts` — all TypeScript interfaces
-- `brain-dashboard/src/api.ts` — fetch helpers (dev: direct, prod: via proxy)
-- `brain-dashboard/src/styles.ts` — all inline style objects
-- `brain-dashboard/src/App.tsx` — root, polling loop, layout
-- `brain-dashboard/src/components/AgentCard.tsx`
-- `brain-dashboard/src/components/CronTable.tsx`
-- `brain-dashboard/src/components/TaskList.tsx`
-- `brain-dashboard/src/components/ProjectGrid.tsx`
-- `brain-dashboard/src/components/MemoryFeed.tsx`
-- `brain-dashboard/src/components/SessionLog.tsx`
+**New files — mind-dashboard:**
+- `mind-dashboard/package.json`
+- `mind-dashboard/tsconfig.json`
+- `mind-dashboard/vite.config.ts`
+- `mind-dashboard/index.html`
+- `mind-dashboard/.env.local` (gitignored — dev only)
+- `mind-dashboard/wrangler.toml`
+- `mind-dashboard/functions/api/[[path]].ts` — proxy to brain worker
+- `mind-dashboard/src/types.ts` — all TypeScript interfaces
+- `mind-dashboard/src/api.ts` — fetch helpers (dev: direct, prod: via proxy)
+- `mind-dashboard/src/styles.ts` — all inline style objects
+- `mind-dashboard/src/App.tsx` — root, polling loop, layout
+- `mind-dashboard/src/components/AgentCard.tsx`
+- `mind-dashboard/src/components/CronTable.tsx`
+- `mind-dashboard/src/components/TaskList.tsx`
+- `mind-dashboard/src/components/ProjectGrid.tsx`
+- `mind-dashboard/src/components/MemoryFeed.tsx`
+- `mind-dashboard/src/components/SessionLog.tsx`
 
 **Modified files — skills:**
-- `skills/claude-code/brain-sync.md` — add cron + subagent reporting
-- `skills/hermes/brain-sync.md` — same
+- `skills/claude-code/mind-sync.md` — add cron + subagent reporting
+- `skills/hermes/mind-sync.md` — same
 
 ---
 
@@ -97,13 +97,13 @@ git commit -m "feat: add cron_jobs and subagents tables"
 ## Task 2: Worker — New Listing Endpoints
 
 **Files:**
-- Modify: `brain-worker/src/index.ts`
+- Modify: `mind-worker/src/index.ts`
 
 The existing worker has `GET /agent-state/:name` but no endpoint to list all agents or all agent states. Add these after the existing `GET /agent-state/:name` block (around line 215).
 
 - [ ] **Step 1: Add GET /agents and GET /agent-states after line 215**
 
-Find this line in `brain-worker/src/index.ts`:
+Find this line in `mind-worker/src/index.ts`:
 ```typescript
       // ─── POST /project ─────────────────────────────────────────────────────
 ```
@@ -127,7 +127,7 @@ Insert before it:
 - [ ] **Step 2: Verify the file compiles**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-worker
+cd ~//Documents/Claude/LifeOS/mind-worker
 npx tsc --noEmit
 ```
 
@@ -138,7 +138,7 @@ Expected: no errors.
 ## Task 3: Worker — Cron and Subagent Endpoints
 
 **Files:**
-- Modify: `brain-worker/src/index.ts`
+- Modify: `mind-worker/src/index.ts`
 
 - [ ] **Step 1: Add POST /cron and GET /crons**
 
@@ -223,7 +223,7 @@ Insert after `GET /agent-states` (after the block you added in Task 2):
 - [ ] **Step 2: Verify the file compiles**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-worker
+cd ~//Documents/Claude/LifeOS/mind-worker
 npx tsc --noEmit
 ```
 
@@ -234,7 +234,7 @@ Expected: no errors.
 ## Task 4: Worker — Update /context + Deploy
 
 **Files:**
-- Modify: `brain-worker/src/index.ts`
+- Modify: `mind-worker/src/index.ts`
 
 - [ ] **Step 1: Update the /context handler to fetch crons and subagents**
 
@@ -283,29 +283,29 @@ ${backlog.map((b: Record<string, unknown>) => `  <item priority="${b.priority}" 
 - [ ] **Step 2: Deploy the updated worker**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-worker
+cd ~//Documents/Claude/LifeOS/mind-worker
 npx wrangler deploy 2>&1 | tail -6
 ```
 
 Expected output ends with:
 ```
-Deployed brain-worker triggers (0.xx sec)
-  https://brain-worker.YOUR_SUBDOMAIN.workers.dev
+Deployed mind-worker triggers (0.xx sec)
+  https://mind-worker.YOUR_SUBDOMAIN.workers.dev
 ```
 
 - [ ] **Step 3: Smoke test the new endpoints**
 
 ```bash
-export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
-export BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev"
+export MIND_API_KEY="MIND_API_KEY_PLACEHOLDER"
+export MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev"
 
-curl -s "$BRAIN_URL/agents" -H "Authorization: Bearer $BRAIN_API_KEY"
+curl -s "$MIND_URL/agents" -H "Authorization: Bearer $MIND_API_KEY"
 # Expected: {"agents":[...]}
 
-curl -s "$BRAIN_URL/crons" -H "Authorization: Bearer $BRAIN_API_KEY"
+curl -s "$MIND_URL/crons" -H "Authorization: Bearer $MIND_API_KEY"
 # Expected: {"cron_jobs":[]}
 
-curl -s "$BRAIN_URL/subagents" -H "Authorization: Bearer $BRAIN_API_KEY"
+curl -s "$MIND_URL/subagents" -H "Authorization: Bearer $MIND_API_KEY"
 # Expected: {"subagents":[]}
 ```
 
@@ -313,29 +313,29 @@ curl -s "$BRAIN_URL/subagents" -H "Authorization: Bearer $BRAIN_API_KEY"
 
 ```bash
 cd ~//Documents/Claude/LifeOS
-git add brain-worker/src/index.ts
+git add mind-worker/src/index.ts
 git commit -m "feat: add agents, crons, subagents endpoints; update /context"
 git push
 ```
 
 ---
 
-## Task 5: Scaffold brain-dashboard
+## Task 5: Scaffold mind-dashboard
 
 **Files:**
-- Create: `brain-dashboard/package.json`
-- Create: `brain-dashboard/tsconfig.json`
-- Create: `brain-dashboard/vite.config.ts`
-- Create: `brain-dashboard/index.html`
-- Create: `brain-dashboard/wrangler.toml`
-- Create: `brain-dashboard/.gitignore`
+- Create: `mind-dashboard/package.json`
+- Create: `mind-dashboard/tsconfig.json`
+- Create: `mind-dashboard/vite.config.ts`
+- Create: `mind-dashboard/index.html`
+- Create: `mind-dashboard/wrangler.toml`
+- Create: `mind-dashboard/.gitignore`
 
 - [ ] **Step 1: Create package.json**
 
-Create `brain-dashboard/package.json`:
+Create `mind-dashboard/package.json`:
 ```json
 {
-  "name": "brain-dashboard",
+  "name": "mind-dashboard",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -362,7 +362,7 @@ Create `brain-dashboard/package.json`:
 
 - [ ] **Step 2: Create tsconfig.json**
 
-Create `brain-dashboard/tsconfig.json`:
+Create `mind-dashboard/tsconfig.json`:
 ```json
 {
   "compilerOptions": {
@@ -385,7 +385,7 @@ Create `brain-dashboard/tsconfig.json`:
 
 - [ ] **Step 3: Create vite.config.ts**
 
-Create `brain-dashboard/vite.config.ts`:
+Create `mind-dashboard/vite.config.ts`:
 ```typescript
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -397,7 +397,7 @@ export default defineConfig({
 
 - [ ] **Step 4: Create index.html**
 
-Create `brain-dashboard/index.html`:
+Create `mind-dashboard/index.html`:
 ```html
 <!doctype html>
 <html lang="en">
@@ -419,9 +419,9 @@ Create `brain-dashboard/index.html`:
 
 - [ ] **Step 5: Create wrangler.toml**
 
-Create `brain-dashboard/wrangler.toml`:
+Create `mind-dashboard/wrangler.toml`:
 ```toml
-name = "brain-dashboard"
+name = "mind-dashboard"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
@@ -429,7 +429,7 @@ compatibility_flags = ["nodejs_compat"]
 
 - [ ] **Step 6: Create .gitignore**
 
-Create `brain-dashboard/.gitignore`:
+Create `mind-dashboard/.gitignore`:
 ```
 node_modules
 dist
@@ -438,7 +438,7 @@ dist
 
 - [ ] **Step 7: Create main.tsx**
 
-Create `brain-dashboard/src/main.tsx`:
+Create `mind-dashboard/src/main.tsx`:
 ```typescript
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -454,7 +454,7 @@ createRoot(document.getElementById('root')!).render(
 - [ ] **Step 8: Install dependencies**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-dashboard
+cd ~//Documents/Claude/LifeOS/mind-dashboard
 npm install
 ```
 
@@ -465,14 +465,14 @@ Expected: `node_modules/` created, no errors.
 ## Task 6: Pages Function Proxy
 
 **Files:**
-- Create: `brain-dashboard/functions/api/[[path]].ts`
+- Create: `mind-dashboard/functions/api/[[path]].ts`
 
 - [ ] **Step 1: Create the catch-all Pages Function**
 
-Create `brain-dashboard/functions/api/[[path]].ts`:
+Create `mind-dashboard/functions/api/[[path]].ts`:
 ```typescript
 interface Env {
-  BRAIN_API_KEY: string;
+  MIND_API_KEY: string;
   BRAIN_WORKER_URL: string;
 }
 
@@ -490,7 +490,7 @@ export async function onRequest(context: {
 
   // Forward request with API key, strip the original auth header if any
   const headers = new Headers(request.headers);
-  headers.set('Authorization', `Bearer ${env.BRAIN_API_KEY}`);
+  headers.set('Authorization', `Bearer ${env.MIND_API_KEY}`);
 
   const workerReq = new Request(workerUrl, {
     method: request.method,
@@ -502,20 +502,20 @@ export async function onRequest(context: {
 }
 ```
 
-The env vars `BRAIN_API_KEY` and `BRAIN_WORKER_URL` are set in Cloudflare Pages dashboard (Task 15). For local dev, the API client calls the worker directly (next task).
+The env vars `MIND_API_KEY` and `BRAIN_WORKER_URL` are set in Cloudflare Pages dashboard (Task 15). For local dev, the API client calls the worker directly (next task).
 
 ---
 
 ## Task 7: Types and API Client
 
 **Files:**
-- Create: `brain-dashboard/src/types.ts`
-- Create: `brain-dashboard/src/api.ts`
-- Create: `brain-dashboard/.env.local`
+- Create: `mind-dashboard/src/types.ts`
+- Create: `mind-dashboard/src/api.ts`
+- Create: `mind-dashboard/.env.local`
 
 - [ ] **Step 1: Create types.ts**
 
-Create `brain-dashboard/src/types.ts`:
+Create `mind-dashboard/src/types.ts`:
 ```typescript
 export interface Project {
   id: number;
@@ -602,18 +602,18 @@ export interface BrainData {
 
 - [ ] **Step 2: Create api.ts**
 
-Create `brain-dashboard/src/api.ts`:
+Create `mind-dashboard/src/api.ts`:
 ```typescript
 import type { Agent, AgentState, AgentTask, BrainData, CronJob, Memory, Project, Session, Subagent } from './types';
 
-// In dev: call worker directly (VITE_BRAIN_URL + VITE_BRAIN_API_KEY from .env.local)
+// In dev: call worker directly (VITE_MIND_URL + VITE_MIND_API_KEY from .env.local)
 // In prod: call /api/* which Pages Function proxies to worker (no key in browser)
 const isDev = import.meta.env.DEV;
-const BASE = isDev ? import.meta.env.VITE_BRAIN_URL as string : '/api';
+const BASE = isDev ? import.meta.env.VITE_MIND_URL as string : '/api';
 
 async function get<T>(path: string): Promise<T> {
   const headers: HeadersInit = isDev
-    ? { 'Authorization': `Bearer ${import.meta.env.VITE_BRAIN_API_KEY as string}` }
+    ? { 'Authorization': `Bearer ${import.meta.env.VITE_MIND_API_KEY as string}` }
     : {};
   const res = await fetch(`${BASE}${path}`, { headers });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
@@ -647,10 +647,10 @@ export async function fetchBrainData(): Promise<BrainData> {
 
 - [ ] **Step 3: Create .env.local for dev**
 
-Create `brain-dashboard/.env.local`:
+Create `mind-dashboard/.env.local`:
 ```
-VITE_BRAIN_URL=https://brain-worker.YOUR_SUBDOMAIN.workers.dev
-VITE_BRAIN_API_KEY=BRAIN_API_KEY_PLACEHOLDER
+VITE_MIND_URL=https://mind-worker.YOUR_SUBDOMAIN.workers.dev
+VITE_MIND_API_KEY=MIND_API_KEY_PLACEHOLDER
 ```
 
 This file is gitignored. In production, the Pages Function handles auth.
@@ -660,11 +660,11 @@ This file is gitignored. In production, the Pages Function handles auth.
 ## Task 8: Styles
 
 **Files:**
-- Create: `brain-dashboard/src/styles.ts`
+- Create: `mind-dashboard/src/styles.ts`
 
 - [ ] **Step 1: Create styles.ts**
 
-Create `brain-dashboard/src/styles.ts`:
+Create `mind-dashboard/src/styles.ts`:
 ```typescript
 import type { CSSProperties } from 'react';
 
@@ -730,11 +730,11 @@ export function relativeTime(iso: string | null): string {
 ## Task 9: AgentCard Component
 
 **Files:**
-- Create: `brain-dashboard/src/components/AgentCard.tsx`
+- Create: `mind-dashboard/src/components/AgentCard.tsx`
 
 - [ ] **Step 1: Create AgentCard.tsx**
 
-Create `brain-dashboard/src/components/AgentCard.tsx`:
+Create `mind-dashboard/src/components/AgentCard.tsx`:
 ```typescript
 import type { Agent, AgentState, Subagent } from '../types';
 import { s, statusColor, relativeTime } from '../styles';
@@ -790,11 +790,11 @@ export function AgentCard({ agent, state, subagents }: Props) {
 ## Task 10: CronTable Component
 
 **Files:**
-- Create: `brain-dashboard/src/components/CronTable.tsx`
+- Create: `mind-dashboard/src/components/CronTable.tsx`
 
 - [ ] **Step 1: Create CronTable.tsx**
 
-Create `brain-dashboard/src/components/CronTable.tsx`:
+Create `mind-dashboard/src/components/CronTable.tsx`:
 ```typescript
 import type { CronJob } from '../types';
 import { s, statusColor, relativeTime } from '../styles';
@@ -840,12 +840,12 @@ export function CronTable({ jobs }: { jobs: CronJob[] }) {
 ## Task 11: TaskList + ProjectGrid Components
 
 **Files:**
-- Create: `brain-dashboard/src/components/TaskList.tsx`
-- Create: `brain-dashboard/src/components/ProjectGrid.tsx`
+- Create: `mind-dashboard/src/components/TaskList.tsx`
+- Create: `mind-dashboard/src/components/ProjectGrid.tsx`
 
 - [ ] **Step 1: Create TaskList.tsx**
 
-Create `brain-dashboard/src/components/TaskList.tsx`:
+Create `mind-dashboard/src/components/TaskList.tsx`:
 ```typescript
 import type { AgentTask } from '../types';
 import { s, statusColor } from '../styles';
@@ -881,7 +881,7 @@ export function TaskList({ tasks }: { tasks: AgentTask[] }) {
 
 - [ ] **Step 2: Create ProjectGrid.tsx**
 
-Create `brain-dashboard/src/components/ProjectGrid.tsx`:
+Create `mind-dashboard/src/components/ProjectGrid.tsx`:
 ```typescript
 import type { Project } from '../types';
 import { s, statusColor } from '../styles';
@@ -914,12 +914,12 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
 ## Task 12: MemoryFeed + SessionLog Components
 
 **Files:**
-- Create: `brain-dashboard/src/components/MemoryFeed.tsx`
-- Create: `brain-dashboard/src/components/SessionLog.tsx`
+- Create: `mind-dashboard/src/components/MemoryFeed.tsx`
+- Create: `mind-dashboard/src/components/SessionLog.tsx`
 
 - [ ] **Step 1: Create MemoryFeed.tsx**
 
-Create `brain-dashboard/src/components/MemoryFeed.tsx`:
+Create `mind-dashboard/src/components/MemoryFeed.tsx`:
 ```typescript
 import type { Memory } from '../types';
 import { s } from '../styles';
@@ -958,7 +958,7 @@ export function MemoryFeed({ memories }: { memories: Memory[] }) {
 
 - [ ] **Step 2: Create SessionLog.tsx**
 
-Create `brain-dashboard/src/components/SessionLog.tsx`:
+Create `mind-dashboard/src/components/SessionLog.tsx`:
 ```typescript
 import type { Session } from '../types';
 import { s, relativeTime } from '../styles';
@@ -992,11 +992,11 @@ export function SessionLog({ sessions }: { sessions: Session[] }) {
 ## Task 13: App.tsx
 
 **Files:**
-- Create: `brain-dashboard/src/App.tsx`
+- Create: `mind-dashboard/src/App.tsx`
 
 - [ ] **Step 1: Create App.tsx**
 
-Create `brain-dashboard/src/App.tsx`:
+Create `mind-dashboard/src/App.tsx`:
 ```typescript
 import { useState, useEffect, useCallback } from 'react';
 import { fetchBrainData } from './api';
@@ -1109,7 +1109,7 @@ export default function App() {
 - [ ] **Step 1: Run dev server**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-dashboard
+cd ~//Documents/Claude/LifeOS/mind-dashboard
 npm run dev
 ```
 
@@ -1122,14 +1122,14 @@ Expected output:
 - [ ] **Step 2: Open in browser**
 
 Open http://localhost:5173 in browser. You should see:
-- "brain" header with refresh button
+- "mindbase" header with refresh button
 - Agents section (may be empty or show claude-mac)
 - Projects section with Zaasu, Anchor, KPS/Mart, Health, Dhiya
 - Memories section with the 8 seeded memories
 
 - [ ] **Step 3: Check browser console for errors**
 
-Open DevTools → Console. There should be no red errors. If you see a CORS error, check that `VITE_BRAIN_URL` in `.env.local` matches exactly `https://brain-worker.YOUR_SUBDOMAIN.workers.dev`.
+Open DevTools → Console. There should be no red errors. If you see a CORS error, check that `VITE_MIND_URL` in `.env.local` matches exactly `https://mind-worker.YOUR_SUBDOMAIN.workers.dev`.
 
 - [ ] **Step 4: Stop dev server and commit**
 
@@ -1137,7 +1137,7 @@ Open DevTools → Console. There should be no red errors. If you see a CORS erro
 # Ctrl+C to stop dev server
 
 cd ~//Documents/Claude/LifeOS
-git add brain-dashboard/
+git add mind-dashboard/
 git commit -m "feat: brain dashboard — Vite React app with Pages Function proxy"
 git push
 ```
@@ -1149,9 +1149,9 @@ git push
 - [ ] **Step 1: Create Cloudflare Pages project via wrangler**
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-dashboard
+cd ~//Documents/Claude/LifeOS/mind-dashboard
 npm run build
-npx wrangler pages project create brain-dashboard
+npx wrangler pages project create mind-dashboard
 ```
 
 When prompted for "Production branch name": enter `main`.
@@ -1159,62 +1159,62 @@ When prompted for "Production branch name": enter `main`.
 - [ ] **Step 2: Deploy**
 
 ```bash
-npx wrangler pages deploy dist --project-name brain-dashboard
+npx wrangler pages deploy dist --project-name mind-dashboard
 ```
 
 Expected: a `*.pages.dev` URL is printed. Open it to verify the dashboard loads.
 
 - [ ] **Step 3: Set environment variables in Cloudflare Pages dashboard**
 
-Go to dash.cloudflare.com → Workers & Pages → brain-dashboard → Settings → Environment variables.
+Go to dash.cloudflare.com → Workers & Pages → mind-dashboard → Settings → Environment variables.
 
 Add (for Production):
-- `BRAIN_API_KEY` = `BRAIN_API_KEY_PLACEHOLDER`
-- `BRAIN_WORKER_URL` = `https://brain-worker.YOUR_SUBDOMAIN.workers.dev`
+- `MIND_API_KEY` = `MIND_API_KEY_PLACEHOLDER`
+- `BRAIN_WORKER_URL` = `https://mind-worker.YOUR_SUBDOMAIN.workers.dev`
 
 Click Save. Then redeploy:
 ```bash
-npx wrangler pages deploy dist --project-name brain-dashboard
+npx wrangler pages deploy dist --project-name mind-dashboard
 ```
 
 - [ ] **Step 4: Connect GitHub for auto-deploy**
 
-In Cloudflare Pages dashboard → brain-dashboard → Settings → Build & Deploy → Connect to Git.
+In Cloudflare Pages dashboard → mind-dashboard → Settings → Build & Deploy → Connect to Git.
 Select `mpbharat/brain` repo. Set:
-- Root directory: `brain-dashboard`
+- Root directory: `mind-dashboard`
 - Build command: `npm run build`
 - Build output directory: `dist`
 
 Save. From now on, every push to `main` auto-deploys.
 
-- [ ] **Step 5: Add custom domain brain.YOUR_DOMAIN.com**
+- [ ] **Step 5: Add custom domain mind.YOUR_DOMAIN.com**
 
-In Cloudflare Pages → brain-dashboard → Custom domains → Add.
-Enter `brain.YOUR_DOMAIN.com`. Cloudflare creates the DNS record automatically since YOUR_DOMAIN.com is already on Cloudflare.
+In Cloudflare Pages → mind-dashboard → Custom domains → Add.
+Enter `mind.YOUR_DOMAIN.com`. Cloudflare creates the DNS record automatically since YOUR_DOMAIN.com is already on Cloudflare.
 
-Wait ~1 minute, then open https://brain.YOUR_DOMAIN.com. The dashboard should load.
+Wait ~1 minute, then open https://mind.YOUR_DOMAIN.com. The dashboard should load.
 
 ---
 
-## Task 16: Update brain-sync Skills
+## Task 16: Update mind-sync Skills
 
 **Files:**
-- Modify: `skills/claude-code/brain-sync.md`
-- Modify: `skills/hermes/brain-sync.md`
+- Modify: `skills/claude-code/mind-sync.md`
+- Modify: `skills/hermes/mind-sync.md`
 
-- [ ] **Step 1: Update skills/claude-code/brain-sync.md**
+- [ ] **Step 1: Update skills/claude-code/mind-sync.md**
 
 Replace the full file content with:
 
 ```markdown
 ---
-name: brain-sync
-description: Gives Claude persistent memory across all sessions and machines via brain.YOUR_DOMAIN.com. Loaded automatically at session start.
+name: mind-sync
+description: Gives Claude persistent memory across all sessions and machines via mind.YOUR_DOMAIN.com. Loaded automatically at session start.
 ---
 
-# Brain Sync
+# Mind Sync
 
-You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block injected at session start contains your current projects, recent memories, active tasks, cron jobs, and active sub-agents.
+You have a persistent brain at mind.YOUR_DOMAIN.com. The <brain-context> block injected at session start contains your current projects, recent memories, active tasks, cron jobs, and active sub-agents.
 
 ## At Session Start
 
@@ -1222,51 +1222,51 @@ Read the <brain-context> block carefully. Pick up exactly where you left off. Do
 
 Report the session start as a cron job:
 ```bash
-curl -s -X POST "$BRAIN_URL/cron" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/cron" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"session-start\",\"agent_name\":\"$BRAIN_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
+  -d "{\"name\":\"session-start\",\"agent_name\":\"$MIND_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
 ```
 
 ## During a Session
 
 ### Save a memory
 ```bash
-curl -s -X POST "$BRAIN_URL/memory" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/memory" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"content":"<lesson>","category":"decision","importance":8}'
 ```
 
 ### Create a task
 ```bash
-curl -s -X POST "$BRAIN_URL/task" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/task" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"title":"<task>","project":"<project>","status":"active"}'
 ```
 
 ### Report a sub-agent dispatched
 ```bash
-curl -s -X POST "$BRAIN_URL/subagent" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/subagent" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"parent_agent\":\"$BRAIN_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it's doing>\",\"status\":\"running\"}"
+  -d "{\"parent_agent\":\"$MIND_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it's doing>\",\"status\":\"running\"}"
 ```
 
 ### Report a sub-agent completed
 ```bash
-curl -s -X POST "$BRAIN_URL/subagent" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/subagent" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"parent_agent\":\"$BRAIN_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it did>\",\"status\":\"done\"}"
+  -d "{\"parent_agent\":\"$MIND_AGENT_NAME\",\"name\":\"<agent-type>\",\"task\":\"<what it did>\",\"status\":\"done\"}"
 ```
 
 ## At Session End
 
-When the user wraps up, run brain-cli save:
+When the user wraps up, run mind-cli save:
 ```bash
-node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js save \
+node ~//Documents/Claude/LifeOS/mind-cli/dist/index.js save \
   --summary "One sentence: what was done" \
   --memory "Key lesson 1" \
   --next "What to do next session"
@@ -1278,45 +1278,45 @@ node ~//Documents/Claude/LifeOS/brain-cli/dist/index.js save \
 **Skip:** Things already in code/docs, routine completions, info that'll be stale in a week
 ```
 
-- [ ] **Step 2: Update skills/hermes/brain-sync.md**
+- [ ] **Step 2: Update skills/hermes/mind-sync.md**
 
 Replace the full file content with:
 
 ```markdown
 ---
-name: brain-sync
-description: Connects Hermes to the shared brain at brain.YOUR_DOMAIN.com for persistent memory across all agents and machines.
+name: mind-sync
+description: Connects Hermes to the shared brain at mind.YOUR_DOMAIN.com for persistent memory across all agents and machines.
 ---
 
-# Brain Sync for Hermes
+# Mind Sync for Hermes
 
 ## Session Start
 
 On activation, call GET /context to load current state as resident memory:
 
 ```bash
-curl -s "$BRAIN_URL/context" \
-  -H "Authorization: Bearer $BRAIN_API_KEY"
+curl -s "$MIND_URL/context" \
+  -H "Authorization: Bearer $MIND_API_KEY"
 ```
 
 Then report session start:
 ```bash
-curl -s -X POST "$BRAIN_URL/cron" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/cron" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"session-start\",\"agent_name\":\"$BRAIN_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
+  -d "{\"name\":\"session-start\",\"agent_name\":\"$MIND_AGENT_NAME\",\"schedule\":\"@session\",\"last_status\":\"ok\"}"
 ```
 
 Set env vars:
 ```bash
-export BRAIN_API_KEY="BRAIN_API_KEY_PLACEHOLDER"
-export BRAIN_URL="https://brain-worker.YOUR_SUBDOMAIN.workers.dev"
-export BRAIN_AGENT_NAME="hermes-mac"   # or hermes-ubuntu
+export MIND_API_KEY="MIND_API_KEY_PLACEHOLDER"
+export MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev"
+export MIND_AGENT_NAME="hermes-mac"   # or hermes-ubuntu
 ```
 
 ## API Reference
 
-All requests: `Authorization: Bearer $BRAIN_API_KEY`
+All requests: `Authorization: Bearer $MIND_API_KEY`
 
 | Action | Request |
 |---|---|
@@ -1331,10 +1331,10 @@ All requests: `Authorization: Bearer $BRAIN_API_KEY`
 ## Session End
 
 ```bash
-curl -s -X POST "$BRAIN_URL/session" \
-  -H "Authorization: Bearer $BRAIN_API_KEY" \
+curl -s -X POST "$MIND_URL/session" \
+  -H "Authorization: Bearer $MIND_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"agent_name\":\"$BRAIN_AGENT_NAME\",\"summary\":\"What was done\",\"duration_minutes\":60}"
+  -d "{\"agent_name\":\"$MIND_AGENT_NAME\",\"summary\":\"What was done\",\"duration_minutes\":60}"
 ```
 ```
 
@@ -1342,14 +1342,14 @@ curl -s -X POST "$BRAIN_URL/session" \
 
 ```bash
 cd ~//Documents/Claude/LifeOS
-git add skills/claude-code/brain-sync.md skills/hermes/brain-sync.md
-git commit -m "feat: add cron + subagent reporting to brain-sync skills"
+git add skills/claude-code/mind-sync.md skills/hermes/mind-sync.md
+git commit -m "feat: add cron + subagent reporting to mind-sync skills"
 git push
 ```
 
 Also copy the updated skill to the installed location:
 ```bash
-cp skills/claude-code/brain-sync.md ~/.claude/skills/brain-sync/SKILL.md
+cp skills/claude-code/mind-sync.md ~/.claude/skills/mind-sync/SKILL.md
 ```
 
 ---
@@ -1367,8 +1367,8 @@ cp skills/claude-code/brain-sync.md ~/.claude/skills/brain-sync/SKILL.md
 - ✅ CronTable — Task 10
 - ✅ TaskList, ProjectGrid, MemoryFeed, SessionLog — Tasks 11, 12
 - ✅ Auto-refresh every 60s — Task 13 (App.tsx setInterval)
-- ✅ brain.YOUR_DOMAIN.com custom domain — Task 15 Step 5
-- ✅ brain-sync skills updated — Task 16
+- ✅ mind.YOUR_DOMAIN.com custom domain — Task 15 Step 5
+- ✅ mind-sync skills updated — Task 16
 - ✅ GitHub auto-deploy — Task 15 Step 4
 
 **Placeholder scan:** None found.

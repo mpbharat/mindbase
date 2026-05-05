@@ -1,7 +1,0 @@
-name = "brain-dashboard"
-pages_build_output_dir = "dist"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
-
-[vars]
-BRAIN_WORKER_URL = "https://brain-worker.YOUR_SUBDOMAIN.workers.dev"

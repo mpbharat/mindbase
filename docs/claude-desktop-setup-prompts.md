@@ -14,8 +14,8 @@ Sign up or log in with Google.
 
 Once inside the dashboard:
 1. Click "New Project"
-2. Project name: "brain"
-3. Database name: "brain"
+2. Project name: "mindbase"
+3. Database name: "mindbase"
 4. Region: choose the closest to Dubai (AWS eu-central-1 Frankfurt or eu-west-1 Ireland)
 5. Click "Create Project"
 
@@ -30,7 +30,7 @@ Once created:
 ## Prompt 2: Enable pgvector on Neon
 
 ```
-In the Neon dashboard, find the SQL Editor for the "brain" project.
+In the Neon dashboard, find the SQL Editor for the "mindbase" project.
 
 Run this SQL:
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -93,7 +93,7 @@ Note: DNS propagation can take up to 24 hours. We can continue with other setup 
 > Run this yourself in the Mac terminal:
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-worker
+cd ~//Documents/Claude/LifeOS/mind-worker
 npm install
 npx wrangler login
 ```
@@ -114,28 +114,28 @@ Expected output: your Cloudflare account name and ID. Share the account ID with 
 > Replace the values with what you got from Prompts 1 and 3.
 
 ```bash
-cd ~//Documents/Claude/LifeOS/brain-worker
+cd ~//Documents/Claude/LifeOS/mind-worker
 
 # Set Neon connection string (paste when prompted)
 npx wrangler secret put DATABASE_URL
 
-# Set brain API key — generate one first:
+# Set mind API key — generate one first:
 openssl rand -hex 32
 # Copy the output, then:
-npx wrangler secret put BRAIN_API_KEY
+npx wrangler secret put MIND_API_KEY
 ```
 
-Save the BRAIN_API_KEY value — you'll need it in your shell profile and on Ubuntu.
+Save the MIND_API_KEY value — you'll need it in your shell profile and on Ubuntu.
 
 ---
 
-## Prompt 7: Configure brain subdomain on Cloudflare
+## Prompt 7: Configure mind subdomain on Cloudflare
 
 ```
 In the Cloudflare dashboard:
 1. Click on "YOUR_DOMAIN.com" domain
 2. Go to "DNS" > "Records"
-3. Check if there's already a record for "brain" subdomain — if yes, tell me what it points to
+3. Check if there's already a record for "mindbase" subdomain — if yes, tell me what it points to
 4. If not, we'll create it after deploying the Worker (Cloudflare creates it automatically via wrangler.toml routes)
 
 Also:
@@ -151,14 +151,14 @@ Also:
 > After getting the Account ID from Prompt 7, add it to wrangler.toml:
 
 ```bash
-# Edit brain-worker/wrangler.toml and add this line near the top:
+# Edit mind-worker/wrangler.toml and add this line near the top:
 # account_id = "your-account-id-here"
 ```
 
 Or paste this into Claude Code CLI:
 
 ```
-Open brain-worker/wrangler.toml and add the line:
+Open mind-worker/wrangler.toml and add the line:
 account_id = "YOUR_ACCOUNT_ID"
 after the compatibility_date line.
 ```
@@ -170,7 +170,7 @@ after the compatibility_date line.
 ```
 Open Chrome and go to https://console.neon.tech
 
-Navigate to your "brain" project > SQL Editor.
+Navigate to your "mindbase" project > SQL Editor.
 
 Paste and run the entire contents of this file:
 [paste the contents of db/schema.sql here]
@@ -185,17 +185,17 @@ Tell me if all statements complete without errors.
 ```
 Please confirm each of the following:
 
-[ ] Neon "brain" database created and connection string saved
+[ ] Neon "mindbase" database created and connection string saved
 [ ] pgvector extension enabled (CREATE EXTENSION vector ran successfully)
 [ ] db/schema.sql ran — all 7 tables created (projects, agents, agent_states, agent_tasks, memories, backlog_items, sessions)
 [ ] Cloudflare account active, Workers AI enabled
 [ ] YOUR_DOMAIN.com nameservers pointing to Cloudflare
 [ ] Wrangler authenticated (npx wrangler whoami works)
 [ ] DATABASE_URL secret set in Wrangler
-[ ] BRAIN_API_KEY secret set in Wrangler (and you have a copy)
+[ ] MIND_API_KEY secret set in Wrangler (and you have a copy)
 [ ] account_id in wrangler.toml
 
-Once all are confirmed, tell me and we'll run: npm run deploy in brain-worker/
+Once all are confirmed, tell me and we'll run: npm run deploy in mind-worker/
 ```
 
 ---
@@ -205,36 +205,36 @@ Once all are confirmed, tell me and we'll run: npm run deploy in brain-worker/
 Send this to Claude Desktop or Claude on Ubuntu:
 
 ```
-I need to set up the brain-cli on this Ubuntu machine.
+I need to set up the mind-cli on this Ubuntu machine.
 
 Run these commands:
 
-git clone https://github.com/mpbharat/brain.git ~/brain
-cd ~/brain/brain-cli
+git clone https://github.com/mpbharat/mindbase.git ~/brain
+cd ~/mind/mind-cli
 npm install
 npm run build
 
 Then add these to ~/.bashrc:
-export BRAIN_API_KEY="PASTE_YOUR_KEY_HERE"
-export BRAIN_AGENT_NAME="claude-ubuntu"
+export MIND_API_KEY="PASTE_YOUR_KEY_HERE"
+export MIND_AGENT_NAME="claude-ubuntu"
 export BRAIN_AGENT_TYPE="claude-code"
-export BRAIN_URL="https://brain.YOUR_DOMAIN.com"
+export MIND_URL="https://mind.YOUR_DOMAIN.com"
 
 Then install the hooks:
-cp ~/brain/hooks/settings.json ~/.claude/settings.json
-sed -i "s|/path/to/brain-cli|$HOME/brain/brain-cli|g" ~/.claude/settings.json
+cp ~/mind/hooks/settings.json ~/.claude/settings.json
+sed -i "s|/path/to/mind-cli|$HOME/mind/mind-cli|g" ~/.claude/settings.json
 
 Then install the Claude Code skill:
-mkdir -p ~/.claude/skills/brain-sync
-cp ~/brain/skills/claude-code/brain-sync.md ~/.claude/skills/brain-sync/SKILL.md
+mkdir -p ~/.claude/skills/mind-sync
+cp ~/mind/skills/claude-code/mind-sync.md ~/.claude/skills/mind-sync/SKILL.md
 
 Then install the Hermes skill:
-mkdir -p ~/.hermes/skills/brain-sync
-cp ~/brain/skills/hermes/brain-sync.md ~/.hermes/skills/brain-sync/SKILL.md
+mkdir -p ~/.hermes/skills/mind-sync
+cp ~/mind/skills/hermes/mind-sync.md ~/.hermes/skills/mind-sync/SKILL.md
 
 Then test it:
 source ~/.bashrc
-BRAIN_API_KEY=$BRAIN_API_KEY BRAIN_AGENT_NAME=$BRAIN_AGENT_NAME node ~/brain/brain-cli/dist/index.js context
+MIND_API_KEY=$MIND_API_KEY MIND_AGENT_NAME=$MIND_AGENT_NAME node ~/mind/mind-cli/dist/index.js context
 
-It should print a <brain-context> block. Tell me what it shows.
+It should print a <mind-context> block. Tell me what it shows.
 ```

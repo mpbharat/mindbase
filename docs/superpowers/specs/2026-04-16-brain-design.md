@@ -31,7 +31,7 @@ Any machine, any agent
 ──────────────────────────────────────────────
 Claude Code (Mac)    ─┐
 Claude Code (Ubuntu) ─┤
-Claude Desktop       ─┤── MCP / REST ──→  brain.YOUR_DOMAIN.com
+Claude Desktop       ─┤── MCP / REST ──→  mind.YOUR_DOMAIN.com
 Hermes (Mac)         ─┤                   (Cloudflare Worker)
 Hermes (Ubuntu)      ─┘                          │
 Future agents ────────────────────────────────────┘
@@ -39,7 +39,7 @@ Future agents ──────────────────────
                                ┌──────────────────┼────────────────────┐
                                ▼                                        ▼
                          Neon Postgres                        Cloudflare Pages
-                         + pgvector                           brain.YOUR_DOMAIN.com
+                         + pgvector                           mind.YOUR_DOMAIN.com
                          (all persistent data)                (dashboard)
 ```
 
@@ -54,8 +54,8 @@ Future agents ──────────────────────
 | API + MCP server | Cloudflare Workers (TypeScript) | Already in stack, stateless, no cold-start ops, 100K req/day free | $0 |
 | Database | Neon Postgres + pgvector | Fully managed, never tied to a machine, vector search built-in | $0 |
 | Dashboard | Cloudflare Pages (React) | Same ecosystem, zero deploy ops | $0 |
-| CLI | brain-cli (Node.js, npx) | Lightweight hook runner, no global install required | $0 |
-| Domain | brain.YOUR_DOMAIN.com | Cloudflare DNS, already controlled | $0 |
+| CLI | mind-cli (Node.js, npx) | Lightweight hook runner, no global install required | $0 |
+| Domain | mind.YOUR_DOMAIN.com | Cloudflare DNS, already controlled | $0 |
 
 ---
 
@@ -229,7 +229,7 @@ end_session(agent_id, summary)
 
 ### SessionStart (automatic on every Claude Code session open)
 
-The hook runs `npx brain-cli context --agent <name>` which:
+The hook runs `npx mind-cli context --agent <name>` which:
 1. POSTs heartbeat → agent status turns green
 2. GETs `/context?agent_id=...`
 3. Injects the response as `<brain-context>` block into the session
@@ -239,7 +239,7 @@ What Claude sees at the start of every session:
 <brain-context>
 Agent: claude-mac | Status: online
 Previous task: Fixed Zaasu logout flow (2026-04-15)
-Next task: Build brain-worker schema
+Next task: Build mind-worker schema
 
 Active projects:
 • Zaasu — active (3 backlog items)
@@ -253,7 +253,7 @@ Recent memories:
 
 ### Stop (automatic on every session close)
 
-The hook runs `npx brain-cli save --agent <name>` which prompts Claude to:
+The hook runs `npx mind-cli save --agent <name>` which prompts Claude to:
 1. Summarise what was done in one sentence → `previous_task`
 2. State what's next if known → `next_task`
 3. Save any new memories worth keeping
@@ -265,7 +265,7 @@ The hook runs `npx brain-cli save --agent <name>` which prompts Claude to:
 
 ## Hermes Integration
 
-Hermes uses a skill file at `~/.hermes/skills/brain-sync/SKILL.md`. The skill:
+Hermes uses a skill file at `~/.hermes/skills/mind-sync/SKILL.md`. The skill:
 - On activation: calls `GET /context` and loads it as resident memory
 - Registers Hermes as an agent via `POST /agents`
 - On session end: posts memories + state update
@@ -274,8 +274,8 @@ Hermes memory provider config (`~/.hermes/config.yaml`):
 ```yaml
 memory_provider:
   type: http
-  base_url: https://brain.YOUR_DOMAIN.com
-  api_key: ${BRAIN_API_KEY}
+  base_url: https://mind.YOUR_DOMAIN.com
+  api_key: ${MIND_API_KEY}
   endpoints:
     add: /memories
     search: /memories/search
@@ -291,13 +291,13 @@ memory_provider:
   "hooks": {
     "SessionStart": [
       {
-        "command": "npx brain-cli@latest context --agent ${BRAIN_AGENT_NAME}",
+        "command": "npx mind-cli@latest context --agent ${MIND_AGENT_NAME}",
         "description": "Load brain context on session start"
       }
     ],
     "Stop": [
       {
-        "command": "npx brain-cli@latest save --agent ${BRAIN_AGENT_NAME}",
+        "command": "npx mind-cli@latest save --agent ${MIND_AGENT_NAME}",
         "description": "Save session summary and memories on close"
       }
     ]
@@ -307,13 +307,13 @@ memory_provider:
 
 Per-machine env vars (in `~/.env` or shell profile):
 ```bash
-BRAIN_API_KEY=your-key
-BRAIN_AGENT_NAME=claude-mac   # or claude-ubuntu, etc.
+MIND_API_KEY=your-key
+MIND_AGENT_NAME=claude-mac   # or claude-ubuntu, etc.
 ```
 
 ---
 
-## Dashboard (brain.YOUR_DOMAIN.com)
+## Dashboard (mind.YOUR_DOMAIN.com)
 
 **5 views:**
 
@@ -338,7 +338,7 @@ Agent registry. Add new agents. View config snippet to copy. API key management.
 
 ```
 brain/                              ← github.com/mpbharat/brain
-├── brain-worker/                   ← Cloudflare Worker
+├── mind-worker/                   ← Cloudflare Worker
 │   ├── src/
 │   │   ├── index.ts                ← router + auth middleware
 │   │   ├── mcp.ts                  ← MCP protocol handler
@@ -353,7 +353,7 @@ brain/                              ← github.com/mpbharat/brain
 │   ├── wrangler.toml
 │   └── package.json
 │
-├── brain-dashboard/                ← React app → Cloudflare Pages
+├── mind-dashboard/                ← React app → Cloudflare Pages
 │   ├── src/
 │   │   ├── pages/
 │   │   │   ├── ControlRoom.tsx
@@ -365,7 +365,7 @@ brain/                              ← github.com/mpbharat/brain
 │   │       └── api.ts              ← typed fetch wrapper
 │   └── package.json
 │
-├── brain-cli/                      ← npx brain-cli (Node.js)
+├── mind-cli/                      ← npx mind-cli (Node.js)
 │   ├── src/
 │   │   ├── index.ts                ← CLI entrypoint
 │   │   ├── context.ts              ← fetch + format + inject context
@@ -374,9 +374,9 @@ brain/                              ← github.com/mpbharat/brain
 │
 ├── skills/
 │   ├── claude-code/
-│   │   └── brain-sync.md           ← Claude Code skill
+│   │   └── mind-sync.md           ← Claude Code skill
 │   └── hermes/
-│       └── brain-sync.md           ← Hermes skill
+│       └── mind-sync.md           ← Hermes skill
 │
 ├── hooks/
 │   └── settings.json               ← drop into ~/.claude/settings.json
@@ -410,8 +410,8 @@ When open-sourced as StellarOS:
 ```bash
 git clone https://github.com/mpbharat/brain
 cp brain/hooks/settings.json ~/.claude/settings.json
-echo "BRAIN_API_KEY=xxx" >> ~/.zshrc
-echo "BRAIN_AGENT_NAME=claude-newmachine" >> ~/.zshrc
+echo "MIND_API_KEY=xxx" >> ~/.zshrc
+echo "MIND_AGENT_NAME=claude-newmachine" >> ~/.zshrc
 # Done. Full memory on this machine.
 ```
 

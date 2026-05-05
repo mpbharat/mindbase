@@ -1,10 +1,10 @@
 {
-  "name": "brain",
+  "name": "mindbase",
   "version": "1.0.0",
   "description": "Persistent memory OS for Claude — cross-session, cross-machine, cross-agent",
   "bin": {
-    "brain-install": "./bin/brain-install.js",
-    "brain-join": "./bin/brain-join.js"
+    "mindbase-install": "./bin/mindbase-install.js",
+    "mindbase-join": "./bin/mindbase-join.js"
   },
   "engines": {
     "node": ">=18"
