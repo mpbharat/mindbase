@@ -1,8 +1,8 @@
 # Brain Sync Skill
 
-This skill teaches Claude how to sync with Brain on every session — opening context, closing with memory, and labeling artifacts correctly.
+**This skill is installed automatically by brain-install. You do not add this manually.**
 
-Paste the relevant sections into your `CLAUDE.md` after completing `brain-install`.
+It documents the session lifecycle behavior that `brain-install` writes into your `~/.claude/CLAUDE.md`.
 
 ---
 
@@ -12,8 +12,7 @@ When the user says what they want to work on, before starting:
 
 **1. Fetch project context:**
 ```bash
-BRAIN_API_KEY="$BRAIN_API_KEY" BRAIN_URL="$BRAIN_URL" BRAIN_AGENT_NAME="$BRAIN_AGENT_NAME" \
-  node ~/brain/brain-cli/dist/index.js fetch "<project name>"
+node ~/brain/brain-cli/dist/index.js fetch "<project name>"
 ```
 
 **2. Set agent state to working:**
@@ -24,11 +23,11 @@ curl -s -X POST "$BRAIN_URL/agent-state" \
   -d "{\"agent_name\":\"$BRAIN_AGENT_NAME\",\"state\":{\"status\":\"working\",\"current_task\":\"<project>: <goal>\"}}"
 ```
 
-**3. Ask two short questions (one message):**
+**3. PM check (one message, keep short):**
 - "What's the outcome you want from this session?"
-- "Is there anything more urgent?" — surface top backlog items if something looks higher priority
+- "Is there anything more urgent?" — surface top 1–2 backlog items if something clearly higher priority
 
-If the goal is clear and obviously right priority: skip the questions, confirm the outcome in one line and start.
+If the goal is obvious and right priority: skip the questions, confirm in one line and start.
 
 ---
 
@@ -38,23 +37,23 @@ If the goal is clear and obviously right priority: skip the questions, confirm t
 
 **Do immediately — no confirmation needed.**
 
-**Step 1 — Synthesize from conversation:**
+**1. Synthesise:**
 - One-sentence summary of what was done
 - 1–3 non-obvious decisions, bugs, or gotchas (skip routine completions)
-- Unfinished work / clear next steps
+- Unfinished work / next steps
 
-**Step 2 — Save memories** (one per insight worth keeping across sessions):
+**2. Save memories** — why-format, one per insight:
 ```bash
 curl -s -X POST "$BRAIN_URL/memory" \
   -H "Authorization: Bearer $BRAIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"content":"<what> — why: <problem it solved> — not <alternative> because <tradeoff>","category":"decision","importance":8,"agent_name":"'"$BRAIN_AGENT_NAME"'","project_id":<id or null>}'
+  -d '{"content":"<what> — why: <reason> — not <alternative> because <tradeoff>","category":"decision","importance":8,"agent_name":"'"$BRAIN_AGENT_NAME"'","project_id":<id or null>}'
 ```
 
-Save: decisions that would take >10 min to reconstruct, gotchas, why an approach was chosen.
-Skip: routine completions, things obvious from the code.
+Save: decisions that take >10 min to reconstruct, gotchas, why an approach was chosen.
+Skip: routine completions, anything obvious from the code.
 
-**Step 3 — Save tasks** (concrete next actions, 1–3 max):
+**3. Save tasks** (concrete next actions, 1–3 max):
 ```bash
 curl -s -X POST "$BRAIN_URL/task" \
   -H "Authorization: Bearer $BRAIN_API_KEY" \
@@ -62,14 +61,14 @@ curl -s -X POST "$BRAIN_URL/task" \
   -d '{"title":"<specific next action>","priority":8,"status":"pending","agent_name":"'"$BRAIN_AGENT_NAME"'","project_id":<id or null>}'
 ```
 
-**Step 4 — brain-cli save:**
+**4. brain-cli save:**
 ```bash
 node ~/brain/brain-cli/dist/index.js save \
   --summary "<one-sentence summary>" \
   --next "<what to pick up next session>"
 ```
 
-**Step 5 — Log session + set agent idle:**
+**5. Log session + set idle:**
 ```bash
 curl -s -X POST "$BRAIN_URL/session" \
   -H "Authorization: Bearer $BRAIN_API_KEY" \
@@ -82,31 +81,33 @@ curl -s -X POST "$BRAIN_URL/agent-state" \
   -d "{\"agent_name\":\"$BRAIN_AGENT_NAME\",\"state\":{\"status\":\"idle\",\"current_task\":null,\"next_task\":\"<next session goal>\"}}"
 ```
 
-**Step 6 — Reply:** "Saved. Session closed." — nothing else.
+**6. Reply:** "Saved. Session closed." — nothing else.
 
 ---
 
 ## Artifact Labeling
 
-When saving any file to Brain Drive, always set:
+When saving any file to Brain Drive:
 - `agent_name`: your agent name if YOU generated the file; `null` if the user gave you the file
 - `description`: one sentence — what it is and what it's for
 
-Brain auto-classifies using Haiku based on these signals. Getting `agent_name` right means correct Drive vs Artifacts split immediately, no reclassification needed.
+Brain auto-classifies using Haiku. Getting `agent_name` right means correct Drive vs Artifacts split at save time — no reclassification needed.
 
-**Examples:**
-- User hands you a PDF → save with `agent_name: null` → goes to Drive
-- You generate a BACKLOG.md → save with `agent_name: "claude-mac:myproject"` → goes to Artifacts
-- You save a meeting transcript you transcribed → `agent_name: null` → Drive
+**Rule of thumb:**
+- User hands you a PDF → `agent_name: null` → Drive
+- You write a BACKLOG.md → `agent_name: "claude-mac:name"` → Artifacts
+- You write a plan → `agent_name: "claude-mac:name"` → Artifacts
+- You transcribe a meeting → `agent_name: null` → Drive (source doc)
 
 ---
 
-## Memory Categories & Priority
+## Memory Format
 
 **Categories:** `decision` · `fact` · `project` · `person`
-**Importance:** 10=critical · 8=important · 6=useful · below 6=skip
+**Importance:** 10=critical · 8=important · 6=useful · skip below 6
 
-**Memory format (why-format for decisions):**
-`"<what> — why: <reason> — not <alternative> because <tradeoff>"`
+**Why-format for decisions:**
+`"<what> — why: <problem it solved> — not <alternative> because <tradeoff>"`
 
-Example: `"Used Haiku for artifact classification — why: fast and cheap for single-call decisions — not Sonnet because 10x cost for no quality gain on binary classification"`
+Example:
+`"Haiku for artifact classification — why: fast + cheap for binary decisions — not Sonnet because 10x cost for no quality gain"`
