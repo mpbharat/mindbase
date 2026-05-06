@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchProjectDetail, createBacklogItem, updateBacklogItem } from '../api';
+import { fetchProjectDetail, createBacklogItem, updateBacklogItem, updateTask } from '../api';
 import type { ProjectDetail as PD, BacklogEpic, BacklogIssue, Artifact } from '../types';
 
 function relativeTime(ts: string) {
@@ -460,18 +460,42 @@ function ActivityTab({ data }: { data: PD }) {
 
 // ─── Tasks Tab ────────────────────────────────────────────────────────────────
 
-function TasksTab({ data }: { data: PD }) {
+function TasksTab({ data, onReload }: { data: PD; onReload: () => void }) {
+  const [toggling, setToggling] = useState<number | null>(null);
   const pending = data.tasks.filter(t => t.status === 'pending' || t.status === 'in-progress' || t.status === 'in_progress');
   const done = data.tasks.filter(t => t.status === 'completed' || t.status === 'done');
 
+  async function toggleTask(id: number, current: string) {
+    setToggling(id);
+    const next = (current === 'done' || current === 'completed') ? 'pending' : 'done';
+    try {
+      await updateTask(id, { status: next });
+      onReload();
+    } finally {
+      setToggling(null);
+    }
+  }
+
   function TaskRow({ t }: { t: PD['tasks'][0] }) {
-    const col = t.status === 'completed' || t.status === 'done' ? '#4ade80' : t.status === 'in-progress' ? '#60a5fa' : '#f59e0b';
     const isDone = t.status === 'completed' || t.status === 'done';
+    const col = isDone ? '#4ade80' : t.status === 'in-progress' || t.status === 'in_progress' ? '#60a5fa' : '#f59e0b';
+    const isToggling = toggling === t.id;
     return (
       <div className="mcard" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', opacity: isDone ? 0.5 : 1 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: col, flexShrink: 0, marginTop: 5 }} />
+        <button
+          onClick={() => toggleTask(t.id, t.status)}
+          disabled={isToggling}
+          style={{
+            width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${isDone ? '#4ade80' : 'var(--border)'}`,
+            background: isDone ? '#4ade8022' : 'transparent', cursor: 'pointer', flexShrink: 0, marginTop: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}
+          title={isDone ? 'Mark pending' : 'Mark done'}
+        >
+          {isDone && <span style={{ fontSize: 10, color: '#4ade80', lineHeight: 1 }}>✓</span>}
+        </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: 'var(--text)' }}>{t.title}</div>
+          <div style={{ fontSize: 13, color: 'var(--text)', textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</div>
           <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>
             {t.agent_name && <span style={{ color: 'var(--blue)' }}>{t.agent_name.split(':')[0]}</span>}
             {t.agent_name && ' · '}p{t.priority} · {relativeTime(t.created_at)}
@@ -605,7 +629,7 @@ export function ProjectDetail({ projectId, onSelect }: { projectId: number; onSe
       {/* Tab content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         {tab === 'Backlog' && <BacklogTab projectId={data.project.id} backlog={data.backlog} reload={reload} />}
-        {tab === 'Tasks' && <TasksTab data={data} />}
+        {tab === 'Tasks' && <TasksTab data={data} onReload={reload} />}
         {tab === 'Memories' && <MemoriesTab data={data} />}
         {tab === 'Drive' && <DriveTab data={data} />}
         {tab === 'Artifacts' && <ArtifactsTab data={data} />}

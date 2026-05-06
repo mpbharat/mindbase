@@ -401,7 +401,7 @@ ${(recentSessions as Record<string, unknown>[]).map(s => `  <session agent="${s.
             ? sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} AND embedding IS NOT NULL ORDER BY embedding <=> ${JSON.stringify(queryVec)}::vector LIMIT 12`
             : sql`SELECT content, category, importance, created_at FROM memories WHERE project_id = ${pid} ORDER BY importance DESC, created_at DESC LIMIT 20`,
           sql`SELECT agent_name, summary, created_at FROM sessions WHERE project_id = ${pid} ORDER BY created_at DESC LIMIT 10`,
-          sql`SELECT title, status, priority FROM agent_tasks WHERE project_id = ${pid} ORDER BY priority DESC, created_at DESC`,
+          sql`SELECT id, title, status, priority FROM agent_tasks WHERE project_id = ${pid} ORDER BY priority DESC, created_at DESC`,
           sql`SELECT title, priority, tags FROM backlog_items WHERE status = 'active' ORDER BY priority DESC LIMIT 50`,
         ]);
 
@@ -423,7 +423,7 @@ ${(memories as Record<string, unknown>[]).map(m => `  <memory category="${m.cate
 ${(sessions as Record<string, unknown>[]).map(s => `  <session agent="${s.agent_name}" when="${s.created_at}">${s.summary || ''}</session>`).join('\n')}
 </sessions>
 <tasks>
-${(tasks as Record<string, unknown>[]).map(t => `  <task status="${t.status}" priority="${t.priority}">${t.title}</task>`).join('\n')}
+${(tasks as Record<string, unknown>[]).map(t => `  <task id="${t.id}" status="${t.status}" priority="${t.priority}">${t.title}</task>`).join('\n')}
 </tasks>
 <backlog>
 ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`).join('\n')}
@@ -547,9 +547,15 @@ ${filteredBacklog.map(b => `  <item priority="${b.priority}">${b.title}</item>`)
       if (path === "/tasks" && method === "GET") {
         const agent = url.searchParams.get("agent");
         const status = url.searchParams.get("status");
+        const projectIdParam = url.searchParams.get("project_id");
+        const projectId = projectIdParam ? parseInt(projectIdParam) : null;
 
         let tasks;
-        if (agent && status) {
+        if (projectId && status) {
+          tasks = await sql`SELECT * FROM agent_tasks WHERE project_id = ${projectId} AND status = ${status} ORDER BY priority DESC, created_at DESC`;
+        } else if (projectId) {
+          tasks = await sql`SELECT * FROM agent_tasks WHERE project_id = ${projectId} ORDER BY priority DESC, created_at DESC`;
+        } else if (agent && status) {
           tasks = await sql`SELECT * FROM agent_tasks WHERE agent_name = ${agent} AND status = ${status} ORDER BY priority DESC, created_at DESC`;
         } else if (agent) {
           tasks = await sql`SELECT * FROM agent_tasks WHERE agent_name = ${agent} ORDER BY priority DESC, created_at DESC`;

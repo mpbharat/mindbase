@@ -86,3 +86,19 @@ export async function updateBacklogItem(id: number, updates: {
     throw new Error(msg);
   }
 }
+
+export async function updateTask(id: number, updates: {
+  status?: string;
+  result?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/task/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    let msg = `PUT /task/${id} → ${res.status}`;
+    try { const b = await res.json() as {error?: string}; if (b.error) msg += `: ${b.error}`; } catch {}
+    throw new Error(msg);
+  }
+}
