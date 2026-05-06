@@ -1,6 +1,6 @@
 # Ubuntu Brain Setup — Instructions for Claude Code
 
-You are Claude Code running on Bharat's Ubuntu machine. Your job is to set up the mind system so this machine has persistent memory synced with the Mac and any other agents.
+You are Claude Code running on a new Ubuntu machine. Your job is to set up the mind system so this machine has persistent memory synced with other agents.
 
 Do these steps in order. No need to ask for confirmation — just do them.
 
@@ -110,7 +110,7 @@ source ~/.zshrc  # or ~/.bashrc
 node ~/mind/mind-cli/dist/index.js context
 ```
 
-You should see the full `<mind-context>` block with Bharat's projects, memories, and tasks.
+You should see the full `<mind-context>` block with your projects, memories, and tasks.
 
 ---
 

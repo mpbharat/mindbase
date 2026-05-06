@@ -16,7 +16,7 @@ Once inside the dashboard:
 1. Click "New Project"
 2. Project name: "mindbase"
 3. Database name: "mindbase"
-4. Region: choose the closest to Dubai (AWS eu-central-1 Frankfurt or eu-west-1 Ireland)
+4. Region: choose the closest to you geographically
 5. Click "Create Project"
 
 Once created:

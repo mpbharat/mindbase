@@ -8,3 +8,12 @@ node_modules/
 .worktrees/
 mind-worker/wrangler.toml
 mind-dashboard/dist/
+
+# Personal files — never commit
+reference/
+CLAUDE.md.personal
+collab-oyster.md
+ubuntu-close-session-skill.md
+brain-drive-bootstrap.mjs
+brain-drive-patch-projects.mjs
+docs/superpowers/

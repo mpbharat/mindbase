@@ -19,7 +19,7 @@ From the conversation extract:
 curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
   -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
-  -d '{"content":"<lesson>","category":"<decision|fact|project|person>","importance":<6-10>,"agent_name":"claude-mac:<Label>"}'
+  -d '{"content":"<lesson>","category":"<decision|fact|project|person>","importance":<6-10>,"agent_name":"claude-mac:<Label>","project_id":<id or null>}'
 ```
 
 ## Step 3 — Save backlog items (only if user mentioned future work not built)
@@ -35,7 +35,7 @@ curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
 MIND_API_KEY="MIND_API_KEY_PLACEHOLDER" \
 MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev" \
 MIND_AGENT_NAME="claude-mac:<Label>" \
-node ~//Documents/Claude/LifeOS/mind-cli/dist/index.js save \
+node ~/mindbase/mind-cli/dist/index.js save \
   --summary "<one-sentence summary>" \
   --next "<what to do next session>"
 ```
@@ -53,6 +53,6 @@ curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/session" \
 One line only: "Saved. Session closed." — nothing else.
 
 ---
-**Categories:** `decision` (architectural/config), `fact` (project state), `person` (about Bharat), `project` (what something does)
+**Memory categories:** `decision` (architectural/config choices), `fact` (project state), `person` (about the user), `project` (what something does)
 **Importance:** 10=critical, 8=important, 6=useful — skip below 6
 **Backlog priority:** 10=next session, 7=soon, 5=someday

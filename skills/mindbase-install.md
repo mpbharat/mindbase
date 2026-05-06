@@ -291,7 +291,7 @@ curl -s -X POST "$MIND_URL/project" \
   }'
 ```
 
-Use your judgment — skip node_modules, system folders, tiny throwaway repos. Group related repos under a parent project if they clearly belong together (e.g. `zaasu-backend` + `zaasu-android` → parent: Zaasu).
+Use your judgment — skip node_modules, system folders, tiny throwaway repos. Group related repos under a parent project if they clearly belong together (e.g. `my-app-backend` + `my-app-mobile` → parent: My App).
 
 After mapping, list what you created and ask: "I've mapped these projects. Anything to add, rename, or remove?"
 

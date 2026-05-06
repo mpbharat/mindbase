@@ -22,48 +22,40 @@ curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/memory" \
   -d '{"content":"<memory>","category":"<decision|fact|project|person>","importance":<6-10>,"agent_name":"claude-mac:<Label>","project_id":<id or null>}'
 ```
 
-**Why-format for decisions:** `"<what> — why: <problem it solved> — not <alternative> because <tradeoff>"`
+**Why-format for decisions:** `"<what>, why: <problem it solved>, not <alternative> because <tradeoff>"`
 Only save things that would take >10 min to reconstruct. Skip what's obvious from the code.
 
-Project IDs: Zaasu=2, KPS/Mart=3, Anchor=1, Personal=6, LifeOS=8, Mart PIM SaaS=7, Data Extraction=12, Lead Research=13, Outreach=14, Health=4, Dhiya=5, EvolveViaAI=9, LinkedIn=10, Dhis=11
+Use your project IDs (visible in the dashboard or fetched via context).
 
-## Step 3 — Save tasks and issues
+## Step 3 — Save tasks and backlog items
 
-**Tasks** (completed or to-do within this session — save as agent_task):
+**Tasks** (concrete next actions):
 ```bash
 curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/task" \
   -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
-  -d '{"title":"<specific action done or to do>","priority":<1-10>,"status":"pending","agent_name":"claude-mac:<Label>","project_id":<id or null>}'
+  -d '{"title":"<specific action>","priority":<1-10>,"status":"pending","agent_name":"claude-mac:<Label>","project_id":<id or null>}'
 ```
 
-**Issues** (started but will spill to next session — save as backlog_item type=issue):
+**Backlog** (future ideas not built this session):
 ```bash
 curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/backlog" \
   -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
   -H "Content-Type: application/json" \
-  -d '{"title":"<what was started but unfinished>","priority":<1-10>,"type":"issue","parent_id":<epic id if known, else null>,"project_id":<id or null>,"tags":["<project>"]}'
+  -d '{"title":"<what to build>","priority":<1-10>,"tags":["<project>"]}'
 ```
 
-**Epics** = NEVER auto-create. These are planned upfront in the dashboard.
-
-**Decision guide:**
-- Did this session complete it? → agent_task (status: completed or pending for next)
-- Started but needs another session? → backlog_item type=issue
-- Big initiative spanning weeks? → Epic (create manually in dashboard, not here)
-
-## Step 5 — mind-cli save
+## Step 4 — mind-cli save
 ```bash
 MIND_API_KEY="MIND_API_KEY_PLACEHOLDER" \
 MIND_URL="https://mind-worker.YOUR_SUBDOMAIN.workers.dev" \
 MIND_AGENT_NAME="claude-mac:$(basename $PWD)" \
-node ~//Documents/Claude/LifeOS/mind-cli/dist/index.js save \
+node ~/mindbase/mind-cli/dist/index.js save \
   --summary "<one-sentence summary>" \
   --next "<what to do next session>"
 ```
-Skip `--memory` here (saved in Step 2). Only include `--next` if real follow-up exists.
 
-## Step 6 — Log session + update agent state to idle
+## Step 5 — Log session + update agent state to idle
 ```bash
 curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/session" \
   -H "Authorization: Bearer MIND_API_KEY_PLACEHOLDER" \
@@ -76,10 +68,10 @@ curl -s -X POST "https://mind-worker.YOUR_SUBDOMAIN.workers.dev/agent-state" \
   -d "{\"agent_name\":\"claude-mac:$(basename $PWD)\",\"state\":{\"status\":\"idle\",\"current_task\":null,\"next_task\":\"<what to pick up next session>\"}}"
 ```
 
-## Step 7 — Respond
+## Step 6 — Respond
 One line only: "Saved. Session closed." — nothing else.
 
 ---
-**Categories:** `decision` (architectural/config), `fact` (project state), `person` (about Bharat), `project` (what something does)
+**Memory categories:** `decision` (architectural/config choices), `fact` (project state), `person` (about the user), `project` (what something does)
 **Importance:** 10=critical, 8=important, 6=useful — skip below 6
 **Task/Backlog priority:** 10=next session, 7=soon, 5=someday

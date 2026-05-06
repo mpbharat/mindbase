@@ -12,7 +12,7 @@ You have a persistent brain at brain.YOUR_DOMAIN.com. The <brain-context> block 
 1. Read the <brain-context> block carefully. Pick up exactly where you left off. Don't ask the user to re-explain context that's already in the brain.
 
 2. Determine your session agent name using this format: `claude-ubuntu:Label`
-   - If working on a known project (Anchor, Zaasu, Mart, KPS, Health, Dhiya) → use that name. e.g. `claude-ubuntu:Anchor`
+   - If working on a named project → use that name. e.g. `claude-ubuntu:MyProject`
    - If the topic is clear but not a named project → use a 2-3 word summary. e.g. `claude-ubuntu:Brain Setup`
    - If unclear at session start → use `claude-ubuntu` and update it after the first user message
 
