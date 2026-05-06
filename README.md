@@ -146,4 +146,4 @@ See `mind-worker/wrangler.toml.example` for configuration reference.
 
 ## License
 
-MIT
+[PolyForm Noncommercial 1.0.0](LICENSE) — free for personal and non-commercial use. For commercial licensing, reach out on [LinkedIn](https://www.linkedin.com/in/mpbharat/).
