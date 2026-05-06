@@ -1,5 +1,9 @@
 # Mindbase
 
+<p align="center">
+  <img src="logo.png" alt="Mindbase" width="80" />
+</p>
+
 **[mindbase.one](https://mindbase.one)** · Persistent memory OS for Claude. Cross-session, cross-machine, cross-agent.
 
 One command installs everything: Cloudflare Worker, database, CLI hooks, and a full web dashboard. Your Claude starts remembering.
