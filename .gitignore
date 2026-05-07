@@ -7,6 +7,7 @@ node_modules/
 *.log
 .worktrees/
 mind-worker/wrangler.toml
+mind-dashboard/wrangler.toml
 mind-dashboard/dist/
 
 # Personal files — never commit

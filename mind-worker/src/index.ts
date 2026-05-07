@@ -3,6 +3,7 @@ import { neon } from "@neondatabase/serverless";
 export interface Env {
   DATABASE_URL: string;
   MIND_API_KEY: string;
+  BRAIN_API_KEY: string;
   BRAIN_AI: Ai;
   BRAIN_DRIVE: R2Bucket;
   ANTHROPIC_API_KEY: string;
@@ -64,7 +65,7 @@ function authenticate(request: Request, env: Env): boolean {
   const auth = request.headers.get("Authorization");
   if (!auth) return false;
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : auth;
-  return token === env.MIND_API_KEY;
+  return token === env.MIND_API_KEY || token === env.BRAIN_API_KEY;
 }
 
 function json(data: unknown, status = 200) {

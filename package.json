@@ -4,7 +4,8 @@
   "description": "Persistent memory OS for Claude — cross-session, cross-machine, cross-agent",
   "bin": {
     "mindbase-install": "bin/mindbase-install.js",
-    "mindbase-join": "bin/mindbase-join.js"
+    "mindbase-join": "bin/mindbase-join.js",
+    "mindbase-update": "bin/mindbase-update.js"
   },
   "engines": {
     "node": ">=18"
