@@ -1,6 +1,6 @@
 {
   "name": "mindbase",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Persistent memory OS for Claude — cross-session, cross-machine, cross-agent",
   "bin": {
     "mindbase-install": "bin/mindbase-install.js",

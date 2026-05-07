@@ -1,31 +1,18 @@
-# Personal data — never publish
 reference/
 CLAUDE.md
-collab-oyster.md
-ubuntu-close-session-skill.md
-
-# Old ideas / archived work
 OLD_IDEAS/
-
-# Personal planning docs
 docs/
-
-# Internal scripts with personal paths
 setup.sh
 update.sh
 mind-drive-bootstrap.mjs
-mind-drive-patch-projects.mjs
 brain-drive-bootstrap.mjs
+mind-drive-patch-projects.mjs
 brain-drive-patch-projects.mjs
-
-# Cloudflare hooks config (personal)
+collab-oyster.md
+ubuntu-close-session-skill.md
 hooks/
-
-# Skills with personal paths (only publish the product skills)
 skills/claude-code/
 skills/hermes/
-
-# Dev / build artifacts
 node_modules/
 mind-dashboard/node_modules/
 mind-cli/node_modules/
@@ -39,5 +26,11 @@ mind-cli/dist/
 .DS_Store
 .worktrees/
 mind-worker/wrangler.toml
-
-# Keep: bin/ mind-worker/ mind-cli/src/ mind-dashboard/src/ skills/mindbase-install.md skills/mind-sync.md README.md package.json
+mind-dashboard/wrangler.toml
+logo.png
+*.png
+*.jpg
+*.jpeg
+.gitignore
+.gitattributes
+brain-cli
