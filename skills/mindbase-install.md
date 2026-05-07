@@ -400,12 +400,24 @@ VITE_MIND_URL=https://mind-worker.XXXXXXXX.workers.dev
 VITE_MIND_API_KEY=<the-key>
 ```
 
+Update `wrangler.toml` with your actual worker URL:
+```toml
+[vars]
+MIND_WORKER_URL = "https://mind-worker.XXXXXXXX.workers.dev"
+```
+
 Build and deploy:
 ```bash
 npm run build
 
 CLOUDFLARE_API_TOKEN="<pages-token>" \
   npx wrangler pages deploy dist --project-name=mind-dashboard
+```
+
+Set the API key as a Pages secret (critical — dashboard will 530 without this):
+```bash
+echo "<the-key>" | CLOUDFLARE_API_TOKEN="<pages-token>" \
+  npx wrangler pages secret put MIND_API_KEY --project-name=mind-dashboard
 ```
 
 Copy the Pages URL (e.g. `https://mind-dashboard-xxx.pages.dev`).
