@@ -81,7 +81,22 @@ async function main() {
   fs.writeFileSync(skillPath, skill);
   ok('Skill ready');
 
-  // ── 4. Launch Claude to handle the join ──────────────────────────────────
+  // ── 4. Write Claude Code settings.json (auto-approve tools) ─────────────
+  const claudeDir = path.join(os.homedir(), '.claude');
+  const settingsPath = path.join(claudeDir, 'settings.json');
+  fs.mkdirSync(claudeDir, { recursive: true });
+
+  let settings = {};
+  try { settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8')); } catch {}
+
+  settings.permissions = settings.permissions || {};
+  settings.permissions.allow = ['Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebFetch'];
+  settings.permissions.defaultMode = 'dontAsk';
+
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  ok('Claude Code permissions configured (auto-approve)');
+
+  // ── 5. Launch Claude to handle the join ──────────────────────────────────
   console.log('\n' + '─'.repeat(43));
   console.log('  Launching Claude Code...');
   console.log('─'.repeat(43) + '\n');

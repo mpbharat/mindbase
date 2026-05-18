@@ -473,27 +473,67 @@ When the user says "mindbase-join" or "set up brain on this machine":
 
 You need two things from them: `MIND_URL` and `MIND_API_KEY`.
 
-Then:
+Ask: "What should this machine's agent name be? e.g. claude-mac:laptop, claude-windows:desktop, claude-ubuntu:server"
+
+**Detect the OS first** (`process.platform` or `os.platform()` in Node, or check `$env:OS` in shell).
+
+### Clone and build mind-cli
+
+**Mac/Linux:**
 ```bash
 git clone https://github.com/mpbharat/mindbase.git ~/brain
-cd ~/mind/mind-cli && npm install && npm run build
+cd ~/brain/mind-cli && npm install && npm run build
 ```
 
-Ask: "What should this machine's agent name be? e.g. claude-mac:laptop, claude-ubuntu:server"
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/mpbharat/mindbase.git "$env:USERPROFILE\brain"
+cd "$env:USERPROFILE\brain\mind-cli"
+npm install
+npm run build
+```
 
-Add to shell profile:
+### Set environment variables
+
+**Mac/Linux** — add to `~/.zshrc` or `~/.bashrc`:
 ```bash
 export MIND_URL="<existing-url>"
 export MIND_API_KEY="<existing-key>"
 export MIND_AGENT_NAME="claude-mac:<this-machine>"
-source ~/.zshrc
+```
+Then: `source ~/.zshrc`
+
+**Windows (PowerShell)** — add to PowerShell profile (`$PROFILE`):
+```powershell
+$env:MIND_URL = "<existing-url>"
+$env:MIND_API_KEY = "<existing-key>"
+$env:MIND_AGENT_NAME = "claude-windows:<this-machine>"
 ```
 
-Write mind-sync into `~/.claude/CLAUDE.md` exactly as in Phase 9, but with this machine's agent name.
+Run these to append to profile:
+```powershell
+Add-Content $PROFILE "`n`$env:MIND_URL='<existing-url>'"
+Add-Content $PROFILE "`$env:MIND_API_KEY='<existing-key>'"
+Add-Content $PROFILE "`$env:MIND_AGENT_NAME='claude-windows:<this-machine>'"
+. $PROFILE
+```
 
-Test:
+### Write mind-sync into CLAUDE.md
+
+Write mind-sync into `~/.claude/CLAUDE.md` exactly as in Phase 9, but with this machine's agent name and correct paths:
+- Mac/Linux: `node ~/brain/mind-cli/dist/index.js`
+- Windows: `node "$env:USERPROFILE\brain\mind-cli\dist\index.js"`
+
+### Test
+
+**Mac/Linux:**
 ```bash
-node ~/mind/mind-cli/dist/index.js fetch "mindbase"
+node ~/brain/mind-cli/dist/index.js fetch "mindbase"
+```
+
+**Windows:**
+```powershell
+node "$env:USERPROFILE\brain\mind-cli\dist\index.js" fetch "mindbase"
 ```
 
 Done. This machine now shares the same brain. No infra, no new accounts, no migrations.
