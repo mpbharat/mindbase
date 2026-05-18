@@ -463,7 +463,7 @@ Tell them exactly this, nothing more:
 >
 > From now on: every session I open will pull your project context. Every session you close ('close session') I'll save a summary, memories, and next steps automatically.
 >
-> On a second machine, run `npx mindbase-join` — it just needs your URL and API key, no infra to set up."
+> On a second machine, run `npx -p mindbase mindbase-join` — it just needs your URL and API key, no infra to set up."
 
 ---
 

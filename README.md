@@ -9,7 +9,7 @@
 One command installs everything: Cloudflare Worker, database, CLI hooks, and a full web dashboard. Your Claude starts remembering.
 
 ```bash
-npx mindbase-install
+npx -p mindbase mindbase-install
 ```
 
 ---
@@ -81,7 +81,7 @@ Mindbase writes `mind-sync` into your `~/.claude/CLAUDE.md` during install. Ever
 ### First machine (~15 minutes)
 
 ```bash
-npx mindbase-install
+npx -p mindbase mindbase-install
 ```
 
 Claude Code walks you through:
@@ -100,7 +100,7 @@ You answer a few questions. Claude does the rest.
 ### Second machine (30 seconds)
 
 ```bash
-npx mindbase-join
+npx -p mindbase mindbase-join
 ```
 
 Claude asks for your `MIND_URL` and `MIND_API_KEY`. No infra. No new accounts. Same mind, new machine.
